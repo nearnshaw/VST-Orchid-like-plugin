@@ -8,7 +8,7 @@
 class CircleOfFifthsDisplay : public juce::Component
 {
 public:
-    explicit CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState& apvts);
+    explicit CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState& apvts_);
 
     // Called from timerCallback (message thread)
     void setCurrentChord(int rootPitchClass, uint8_t chordType, uint16_t notesBitmask);
@@ -42,6 +42,7 @@ private:
     // ---------------------------------------------------------------
     // Key selector
     // ---------------------------------------------------------------
+    juce::AudioProcessorValueTreeState& apvts;
     juce::Label    keyLabel  { {}, "KEY" };
     juce::ComboBox keyCombo;
     using ComboAtt = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
@@ -67,8 +68,8 @@ private:
     juce::Path          makeSegment  (float a1, float a2, float r1, float r2) const;
     juce::Point<float>  arcMidpoint  (float a1, float a2, float r) const;
 
-    // ring: 0=major outer, 1=minor middle, 2=dim inner
-    juce::Colour        segmentColour(int pos, int ring) const;
+    // ring: 0=major outer, 1=minor middle, 2=dim inner; key: 0=C … 11=B
+    juce::Colour        segmentColour(int pos, int ring, int key) const;
 
     void drawSegmentLabel(juce::Graphics& g, const juce::String& text,
                           juce::Point<float> pt, float size, bool bold,

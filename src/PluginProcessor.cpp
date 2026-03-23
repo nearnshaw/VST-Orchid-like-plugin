@@ -110,17 +110,31 @@ void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         }
     }
 
-    // Generate chord if we have a root note and at least one key held (type or extension)
-    if ((chordType != 0 || extensions != 0) && currentRootNote >= 0)
+    // Determine desired notes:
+    //   - root held + chord keys → full voiced chord
+    //   - root held + no chord keys → single passthrough note
+    //   - no root → silence
+    if (currentRootNote >= 0)
     {
-        auto voicingParams = buildVoicingParams();
-        auto intervals     = chordEngine.buildIntervals(chordType, extensions);
-        auto newNotes      = voicingEngine.applyVoicing(intervals, currentRootNote, voicingParams);
-        int  newBass       = voicingEngine.getBassNote(newNotes);
+        std::vector<int> newNotes;
+        int newBass = -1;
+
+        if (chordType != 0 || extensions != 0)
+        {
+            auto voicingParams = buildVoicingParams();
+            auto intervals     = chordEngine.buildIntervals(chordType, extensions);
+            newNotes           = voicingEngine.applyVoicing(intervals, currentRootNote, voicingParams);
+            newBass            = voicingEngine.getBassNote(newNotes);
+        }
+        else
+        {
+            // No chord keys held — pass the raw MIDI note straight through
+            newNotes = { currentRootNote };
+        }
 
         if (newNotes != currentNotes)
         {
-            auto config = buildRouterConfig();
+            auto config     = buildRouterConfig();
             config.velocity = 0.8f;
 
             midiRouter.routeChord(outMidi, currentNotes, newNotes,
@@ -129,9 +143,10 @@ void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
             currentNotes    = newNotes;
             currentBassNote = newBass;
-            lastChordName   = ChordEngine::getChordName(currentRootNote, chordType, extensions);
+            lastChordName   = (chordType != 0 || extensions != 0)
+                                  ? ChordEngine::getChordName(currentRootNote, chordType, extensions)
+                                  : "";
 
-            // Update circle-of-fifths display atomics
             uint16_t mask = 0;
             for (int note : currentNotes)
                 mask |= uint16_t(1) << (note % 12);
@@ -140,15 +155,15 @@ void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             displayChordType.store(chordType,                     std::memory_order_release);
         }
     }
-    else if (chordType == 0 && extensions == 0 && !currentNotes.empty())
+    else if (!currentNotes.empty())
     {
-        // Chord type released — stop the chord
+        // No root note — silence everything
         auto config = buildRouterConfig();
         midiRouter.allNotesOff(outMidi, currentNotes, currentBassNote, config, 0);
         synthEngine.releaseChord();
         currentNotes.clear();
         currentBassNote = -1;
-        lastChordName = "";
+        lastChordName   = "";
         displayNotesMask.store(0,  std::memory_order_release);
         displayRootPC.store   (-1, std::memory_order_release);
         displayChordType.store(0,  std::memory_order_release);

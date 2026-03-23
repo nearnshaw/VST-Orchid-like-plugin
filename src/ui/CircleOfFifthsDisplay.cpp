@@ -10,18 +10,18 @@
 // Each entry: { majorRoot, minorRoot, dimRoot, majorName, minorName, dimName }
 // All names use # notation only (no ♭).
 const std::array<CircleOfFifthsDisplay::CoFPos, 12> CircleOfFifthsDisplay::kPos = {{
-    {  0,  9, 11, "C",  "Am",  "B°"  },   // 0  – key of C
-    {  7,  4,  6, "G",  "Em",  "F#°" },   // 1  – key of G
-    {  2, 11,  1, "D",  "Bm",  "C#°" },   // 2  – key of D
-    {  9,  6,  8, "A",  "F#m", "G#°" },   // 3  – key of A
-    {  4,  1,  3, "E",  "C#m", "D#°" },   // 4  – key of E
-    { 11,  8, 10, "B",  "G#m", "A#°" },   // 5  – key of B
-    {  6,  3,  5, "F#", "D#m", "F°"  },   // 6  – key of F#
-    {  1, 10,  0, "C#", "A#m", "C°"  },   // 7  – key of C#
-    {  8,  5,  7, "G#", "Fm",  "G°"  },   // 8  – key of G#
-    {  3,  0,  2, "D#", "Cm",  "D°"  },   // 9  – key of D#
-    { 10,  7,  9, "A#", "Gm",  "A°"  },   // 10 – key of A#
-    {  5,  2,  4, "F",  "Dm",  "E°"  },   // 11 – key of F
+    {  0,  9, 11, "C",  "Am",  "Bdim"  },   // 0  – key of C
+    {  7,  4,  6, "G",  "Em",  "F#dim" },   // 1  – key of G
+    {  2, 11,  1, "D",  "Bm",  "C#dim" },   // 2  – key of D
+    {  9,  6,  8, "A",  "F#m", "G#dim" },   // 3  – key of A
+    {  4,  1,  3, "E",  "C#m", "D#dim" },   // 4  – key of E
+    { 11,  8, 10, "B",  "G#m", "A#dim" },   // 5  – key of B
+    {  6,  3,  5, "F#", "D#m", "Fdim"  },   // 6  – key of F#
+    {  1, 10,  0, "C#", "A#m", "Cdim"  },   // 7  – key of C#
+    {  8,  5,  7, "G#", "Fm",  "Gdim"  },   // 8  – key of G#
+    {  3,  0,  2, "D#", "Cm",  "Ddim"  },   // 9  – key of D#
+    { 10,  7,  9, "A#", "Gm",  "Adim"  },   // 10 – key of A#
+    {  5,  2,  4, "F",  "Dm",  "Edim"  },   // 11 – key of F
 }};
 
 // Pitch class (0=C … 11=B) → circle position
@@ -64,7 +64,8 @@ const juce::Colour CircleOfFifthsDisplay::kTextTonic     = juce::Colour(0xFFE0A8
 // -----------------------------------------------------------------------
 // Constructor
 // -----------------------------------------------------------------------
-CircleOfFifthsDisplay::CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState& apvts)
+CircleOfFifthsDisplay::CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState& apvts_)
+    : apvts(apvts_)
 {
     // Key dropdown (all sharps, C=0 … B=11)
     static const char* keyNames[] = {
@@ -74,7 +75,7 @@ CircleOfFifthsDisplay::CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState&
         keyCombo.addItem(keyNames[i], i + 1);   // item IDs are 1-indexed
     keyCombo.setSelectedId(1, juce::dontSendNotification);
 
-    keyAtt = std::make_unique<ComboAtt>(apvts, ParamIDs::SelectedKey, keyCombo);
+    keyAtt = std::make_unique<ComboAtt>(apvts_, ParamIDs::SelectedKey, keyCombo);
 
     // Repaint the circle whenever the key selection changes
     keyCombo.onChange = [this]() { repaint(); };
@@ -175,14 +176,15 @@ void CircleOfFifthsDisplay::drawSegmentLabel(juce::Graphics& g, const juce::Stri
 // -----------------------------------------------------------------------
 int CircleOfFifthsDisplay::selectedKey() const
 {
-    // getSelectedItemIndex() returns the 0-based position (C=0, C#=1, ..., B=11)
-    // regardless of what item IDs the attachment uses internally
-    return juce::jlimit(0, 11, keyCombo.getSelectedItemIndex());
+    // The combo always displays the correct note name, so the item index IS the key.
+    // Called once per paint(); result passed everywhere so no multi-call inconsistency.
+    const int idx = keyCombo.getSelectedItemIndex();
+    return juce::jlimit(0, 11, idx < 0 ? 0 : idx);
 }
 
-bool CircleOfFifthsDisplay::isDiatonic(int pc, int ring) const
+// key is passed in so this is never called with a stale/different value mid-paint
+static bool isDiatonicK(int pc, int ring, int K)
 {
-    const int K = selectedKey();
     if (ring == 0)   // major: I (K), IV (K+5), V (K+7)
         return pc == K % 12 || pc == (K + 5) % 12 || pc == (K + 7) % 12;
     if (ring == 1)   // minor: ii (K+2), iii (K+4), vi (K+9)
@@ -190,6 +192,11 @@ bool CircleOfFifthsDisplay::isDiatonic(int pc, int ring) const
     if (ring == 2)   // dim: vii° (K+11)
         return pc == (K + 11) % 12;
     return false;
+}
+
+bool CircleOfFifthsDisplay::isDiatonic(int pc, int ring) const
+{
+    return isDiatonicK(pc, ring, selectedKey());
 }
 
 bool CircleOfFifthsDisplay::isActive(int pos, int ring) const
@@ -211,7 +218,7 @@ bool CircleOfFifthsDisplay::isChordNote(int pc) const
 // -----------------------------------------------------------------------
 // Colour selection (priority: active > note-hint > diatonic > base)
 // -----------------------------------------------------------------------
-juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring) const
+juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring, int key) const
 {
     if (isActive(pos, ring))
         return kActive[ring];
@@ -225,10 +232,10 @@ juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring) const
         return kNoteHint;
 
     // Tonic chord (I) gets its own subtle accent — only major ring, no active chord playing
-    if (ring == 0 && activeRoot < 0 && pc == selectedKey())
+    if (ring == 0 && activeRoot < 0 && pc == key)
         return kTonic;
 
-    if (isDiatonic(pc, ring))
+    if (isDiatonicK(pc, ring, key))
         return kDiatonic[ring];
 
     return kBase[ring];
@@ -246,8 +253,13 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
     const float pi2      = juce::MathConstants<float>::twoPi;
     const float halfPi   = juce::MathConstants<float>::halfPi;
     const float segAngle = pi2 / 12.0f;
+    // Rotate so C sits exactly at 12 o'clock (shift back half a segment width)
+    const float startAngle = -halfPi - segAngle * 0.5f;
     // Small gap between segments for readability
     const float gap      = 0.012f;
+
+    // Compute key once for the whole frame — avoids any multi-call inconsistency
+    const int key = selectedKey();
 
     // Precomputed ring absolute radii
     const float rMajO = outerR * kMajOuter;
@@ -274,79 +286,81 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
     const float minLabelW  = juce::jmin(48.0f, rMinTxt * 2.0f * arcSinHalf * 0.88f);
     const float dimLabelW  = juce::jmin(38.0f, rDimTxt * 2.0f * arcSinHalf * 0.88f);
 
+    // ── Pass 1: all fills and borders ───────────────────────────────────
     for (int i = 0; i < 12; ++i)
     {
-        const float a1 = -halfPi + i * segAngle + gap;
-        const float a2 = -halfPi + (i + 1) * segAngle - gap;
+        const float a1 = startAngle + i * segAngle + gap;
+        const float a2 = startAngle + (i + 1) * segAngle - gap;
 
-        // ── Major (outer) ring ──────────────────────────────────────
+        // Major (outer) ring
+        g.setColour(segmentColour(i, 0, key));
+        g.fillPath(makeSegment(a1, a2, rMajI, rMajO));
+        g.setColour(kSep);
+        g.strokePath(makeSegment(a1, a2, rMajI, rMajO), juce::PathStrokeType(0.8f));
+
+        // Minor (middle) ring
+        g.setColour(segmentColour(i, 1, key));
+        g.fillPath(makeSegment(a1, a2, rMinI, rMinO));
+        g.setColour(kSep);
+        g.strokePath(makeSegment(a1, a2, rMinI, rMinO), juce::PathStrokeType(0.6f));
+
+        // Dim (inner) ring
+        g.setColour(segmentColour(i, 2, key));
+        g.fillPath(makeSegment(a1, a2, rDimI, rDimO));
+        g.setColour(kSep);
+        g.strokePath(makeSegment(a1, a2, rDimI, rDimO), juce::PathStrokeType(0.5f));
+    }
+
+    // Centre hole drawn before labels so it doesn't overdraw the innermost text
+    g.setColour(kBg);
+    g.fillEllipse(centre.x - rDimI, centre.y - rDimI, rDimI * 2.0f, rDimI * 2.0f);
+
+    // ── Pass 2: all labels (drawn on top of all fills) ───────────────────
+    for (int i = 0; i < 12; ++i)
+    {
+        const float a1 = startAngle + i * segAngle + gap;
+        const float a2 = startAngle + (i + 1) * segAngle - gap;
+
+        // Major label
         {
-            juce::Colour fill = segmentColour(i, 0);
-            g.setColour(fill);
-            g.fillPath(makeSegment(a1, a2, rMajI, rMajO));
-
-            g.setColour(kSep);
-            g.strokePath(makeSegment(a1, a2, rMajI, rMajO),
-                         juce::PathStrokeType(0.8f));
-
             bool active   = isActive(i, 0);
-            bool tonic    = !active && (activeRoot < 0) && (kPos[i].majorRoot == selectedKey());
-            bool diatonic = !active && !tonic && isDiatonic(kPos[i].majorRoot, 0);
-            juce::Colour txtCol = active ? kTextActive
+            bool tonic    = !active && (activeRoot < 0) && (kPos[i].majorRoot == key);
+            bool diatonic = !active && !tonic && isDiatonicK(kPos[i].majorRoot, 0, key);
+            juce::Colour txtCol = active   ? kTextActive
                                 : tonic    ? kTextTonic
                                 : diatonic ? kTextDiatonic
-                                : kText[0];
+                                :            kText[0];
             drawSegmentLabel(g, kPos[i].majorName,
                              arcMidpoint(a1, a2, rMajTxt),
                              majFontSz, true, txtCol, majLabelW);
         }
 
-        // ── Minor (middle) ring ──────────────────────────────────────
+        // Minor label
         {
-            juce::Colour fill = segmentColour(i, 1);
-            g.setColour(fill);
-            g.fillPath(makeSegment(a1, a2, rMinI, rMinO));
-
-            g.setColour(kSep);
-            g.strokePath(makeSegment(a1, a2, rMinI, rMinO),
-                         juce::PathStrokeType(0.6f));
-
             bool active   = isActive(i, 1);
-            bool diatonic = !active && isDiatonic(kPos[i].minorRoot, 1);
-            juce::Colour txtCol = active ? kTextActive
+            bool diatonic = !active && isDiatonicK(kPos[i].minorRoot, 1, key);
+            juce::Colour txtCol = active   ? kTextActive
                                 : diatonic ? kTextDiatonic
-                                : kText[1];
+                                :            kText[1];
             drawSegmentLabel(g, kPos[i].minorName,
                              arcMidpoint(a1, a2, rMinTxt),
                              minFontSz, false, txtCol, minLabelW);
         }
 
-        // ── Dim (inner) ring ─────────────────────────────────────────
+        // Dim label
         {
-            juce::Colour fill = segmentColour(i, 2);
-            g.setColour(fill);
-            g.fillPath(makeSegment(a1, a2, rDimI, rDimO));
-
-            g.setColour(kSep);
-            g.strokePath(makeSegment(a1, a2, rDimI, rDimO),
-                         juce::PathStrokeType(0.5f));
-
             bool active   = isActive(i, 2);
-            bool diatonic = !active && isDiatonic(kPos[i].dimRoot, 2);
-            juce::Colour txtCol = active ? kTextActive
+            bool diatonic = !active && isDiatonicK(kPos[i].dimRoot, 2, key);
+            juce::Colour txtCol = active   ? kTextActive
                                 : diatonic ? kTextDiatonic
-                                : kText[2];
+                                :            kText[2];
             drawSegmentLabel(g, kPos[i].dimName,
                              arcMidpoint(a1, a2, rDimTxt),
                              dimFontSz, false, txtCol, dimLabelW);
         }
     }
 
-    // Centre hole
-    g.setColour(kBg);
-    g.fillEllipse(centre.x - rDimI, centre.y - rDimI, rDimI * 2.0f, rDimI * 2.0f);
-
-    // Optional: subtle ring outlines
+    // Subtle ring outlines
     g.setColour(kSep.withAlpha(0.5f));
     for (float r : { rMajO, rMajI, rMinI, rDimI })
         g.drawEllipse(centre.x - r, centre.y - r, r * 2.0f, r * 2.0f, 0.6f);
