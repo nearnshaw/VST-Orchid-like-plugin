@@ -98,14 +98,17 @@ private:
     static const juce::Colour kBg;
     static const juce::Colour kBase      [3];
     static const juce::Colour kDiatonic  [3];
-    static const juce::Colour kTonic;           // tonic chord when no active chord
-    static const juce::Colour kScaleTone;       // in-scale note with no standard triad
-    static const juce::Colour kActive    [3];
-    static const juce::Colour kNoteHint;
+    static const juce::Colour kTonic;              // tonic chord when no active chord
+    static const juce::Colour kScaleTone;          // in-scale note with no standard triad
+    static const juce::Colour kActive         [3];
+    static const juce::Colour kActiveNonDiat;      // active chord is outside the scale
+    static const juce::Colour kNoteHint;           // chord tone on its diatonic ring
+    static const juce::Colour kNoteOutOfScale;     // chord tone not in the scale at all
     static const juce::Colour kSep;
-    static const juce::Colour kText      [3];
+    static const juce::Colour kText          [3];
     static const juce::Colour kTextActive;
     static const juce::Colour kTextDiatonic;
     static const juce::Colour kTextTonic;
     static const juce::Colour kTextScaleTone;
+    static const juce::Colour kTextOutOfScale;     // label for out-of-scale chord tones
 };

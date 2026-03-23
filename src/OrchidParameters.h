@@ -21,6 +21,7 @@ namespace ParamIDs
     inline constexpr auto SelectedKey      = "selectedKey";
     inline constexpr auto SelectedScale    = "selectedScale";
     inline constexpr auto SynthEnabled     = "synthEnabled";
+    inline constexpr auto KeyMode          = "keyMode";
 }
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
@@ -100,6 +101,10 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // Selected scale/mode (0=Major … 12=Mixolydian b6)
     params.push_back(std::make_unique<AudioParameterInt>(
         ParamIDs::SelectedScale, "Scale", 0, 12, 0));
+
+    // Key Mode: auto-determine chord type from root + selected key/scale
+    params.push_back(std::make_unique<AudioParameterBool>(
+        ParamIDs::KeyMode, "Key Mode", false));
 
     return { params.begin(), params.end() };
 }

@@ -15,9 +15,10 @@ VoicingPanel::VoicingPanel(juce::AudioProcessorValueTreeState& apvts_)
     {
         collapsed = !collapsed;
         collapseBtn.setButtonText(collapsed ? ">" : "v");
-        for (juce::Component* c : { (juce::Component*)&voicingLabel, (juce::Component*)&voicingCombo,
-                                    (juce::Component*)&octaveLabel,  (juce::Component*)&octaveCombo,
-                                    (juce::Component*)&bassLabel,    (juce::Component*)&bassToggle })
+        for (juce::Component* c : { (juce::Component*)&voicingLabel,  (juce::Component*)&voicingCombo,
+                                    (juce::Component*)&octaveLabel,   (juce::Component*)&octaveCombo,
+                                    (juce::Component*)&bassLabel,     (juce::Component*)&bassToggle,
+                                    (juce::Component*)&keyModeToggle })
             c->setVisible(!collapsed);
         if (onToggle) onToggle();
     };
@@ -43,7 +44,8 @@ VoicingPanel::VoicingPanel(juce::AudioProcessorValueTreeState& apvts_)
     octaveCombo.setSelectedId(3);
     octaveAttachment = std::make_unique<ComboAtt>(apvts, ParamIDs::OctaveOffset, octaveCombo);
 
-    bassAttachment = std::make_unique<ButtonAtt>(apvts, ParamIDs::BassEnabled, bassToggle);
+    bassAttachment    = std::make_unique<ButtonAtt>(apvts, ParamIDs::BassEnabled, bassToggle);
+    keyModeAttachment = std::make_unique<ButtonAtt>(apvts, ParamIDs::KeyMode,     keyModeToggle);
 
     for (auto* lbl : { &voicingLabel, &octaveLabel, &bassLabel })
     {
@@ -55,9 +57,13 @@ VoicingPanel::VoicingPanel(juce::AudioProcessorValueTreeState& apvts_)
     addAndMakeVisible(voicingCombo);
     addAndMakeVisible(octaveCombo);
     addAndMakeVisible(bassToggle);
+    addAndMakeVisible(keyModeToggle);
 
-    bassToggle.setColour(juce::ToggleButton::textColourId, kTextColour);
-    bassToggle.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xFFE06B3A));
+    for (auto* btn : { &bassToggle, &keyModeToggle })
+    {
+        btn->setColour(juce::ToggleButton::textColourId, kTextColour);
+        btn->setColour(juce::ToggleButton::tickColourId, juce::Colour(0xFFE06B3A));
+    }
 }
 
 void VoicingPanel::resized()
@@ -86,6 +92,9 @@ void VoicingPanel::resized()
     bassLabel.setBounds(pad, y, w - pad * 2, 14);
     y += 16;
     bassToggle.setBounds(pad, y, w - pad * 2, 22);
+    y += 30;
+
+    keyModeToggle.setBounds(pad, y, w - pad * 2, 22);
 }
 
 void VoicingPanel::paint(juce::Graphics& g)

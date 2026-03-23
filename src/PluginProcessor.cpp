@@ -39,6 +39,66 @@ void BegoniaProcessor::releaseResources()
     currentBassNote  = -1;
 }
 
+// Returns the diatonic chord type for a pitch class given a key and scale.
+// Returns ChordEngine::None if the note is not diatonic (non-standard triad degree).
+static uint8_t getDiatonicChordType(int pc, int K, int scale)
+{
+    static const int kMajOffs[13][4] = {
+        { 0, 5, 7,-1}, // Major
+        { 3, 8,10,-1}, // Natural Minor
+        { 3, 5,10,-1}, // Dorian
+        { 1, 3, 8,-1}, // Phrygian
+        { 0, 2, 7,-1}, // Lydian
+        { 0, 5,10,-1}, // Mixolydian
+        { 1, 6, 8,-1}, // Locrian
+        { 7, 8,-1,-1}, // Harmonic Minor
+        { 5, 7,-1,-1}, // Melodic Minor
+        { 0, 2,-1,-1}, // Lydian Dominant
+        { 0, 1,-1,-1}, // Phrygian Dominant
+        { 7, 8,-1,-1}, // Hungarian Minor
+        { 0,10,-1,-1}, // Mixolydian b6
+    };
+    static const int kMinOffs[13][4] = {
+        { 2, 4, 9,-1}, // Major
+        { 0, 5, 7,-1}, // Natural Minor
+        { 0, 2, 7,-1}, // Dorian
+        { 0, 5,10,-1}, // Phrygian
+        { 4, 9,11,-1}, // Lydian
+        { 2, 7, 9,-1}, // Mixolydian
+        { 3, 5,10,-1}, // Locrian
+        { 0, 5,-1,-1}, // Harmonic Minor
+        { 0, 2,-1,-1}, // Melodic Minor
+        { 7, 9,-1,-1}, // Lydian Dominant
+        { 5,10,-1,-1}, // Phrygian Dominant
+        { 0,11,-1,-1}, // Hungarian Minor
+        { 5, 7,-1,-1}, // Mixolydian b6
+    };
+    static const int kDimOffs[13][4] = {
+        {11,-1,-1,-1}, // Major
+        { 2,-1,-1,-1}, // Natural Minor
+        { 9,-1,-1,-1}, // Dorian
+        { 7,-1,-1,-1}, // Phrygian
+        { 6,-1,-1,-1}, // Lydian
+        { 4,-1,-1,-1}, // Mixolydian
+        { 0,-1,-1,-1}, // Locrian
+        { 2,11,-1,-1}, // Harmonic Minor
+        { 9,11,-1,-1}, // Melodic Minor
+        { 4, 6,-1,-1}, // Lydian Dominant
+        { 4, 7,-1,-1}, // Phrygian Dominant
+        { 6,-1,-1,-1}, // Hungarian Minor
+        { 2, 4,-1,-1}, // Mixolydian b6
+    };
+
+    const int s = juce::jlimit(0, 12, scale);
+    for (int j = 0; j < 4 && kMajOffs[s][j] >= 0; ++j)
+        if (pc == (K + kMajOffs[s][j]) % 12) return ChordEngine::Major;
+    for (int j = 0; j < 4 && kMinOffs[s][j] >= 0; ++j)
+        if (pc == (K + kMinOffs[s][j]) % 12) return ChordEngine::Minor;
+    for (int j = 0; j < 4 && kDimOffs[s][j] >= 0; ++j)
+        if (pc == (K + kDimOffs[s][j]) % 12) return ChordEngine::Dim;
+    return ChordEngine::None;
+}
+
 void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                     juce::MidiBuffer& midiBuffer)
 {
@@ -67,8 +127,17 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     // Get current keyboard/chord state (atomic read — safe on audio thread)
     auto chordState = keyboardMapper.getCurrentState();
-    const uint8_t chordType  = chordState.chordType;
+    uint8_t chordType  = chordState.chordType;
     const uint8_t extensions = chordState.extensions;
+
+    // Key Mode: auto-determine chord type from root note + selected key/scale
+    if (pKeyMode && pKeyMode->get() && currentRootNote >= 0)
+    {
+        const int pc    = currentRootNote % 12;
+        const int key   = pSelectedKey   ? pSelectedKey->get()   : 0;
+        const int scale = pSelectedScale ? pSelectedScale->get() : 0;
+        chordType = getDiatonicChordType(pc, key, scale);
+    }
 
     // Process incoming MIDI to extract root note
     for (const auto metadata : midiBuffer)
@@ -198,6 +267,9 @@ void BegoniaProcessor::cacheParameterPointers()
     pOutputGain      = dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter(ParamIDs::OutputGain));
     pGlobalKeyMon    = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::GlobalKeyMonitor));
     pSynthEnabled    = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::SynthEnabled));
+    pKeyMode         = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::KeyMode));
+    pSelectedKey     = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::SelectedKey));
+    pSelectedScale   = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::SelectedScale));
 }
 
 void BegoniaProcessor::updateSynthParameters()

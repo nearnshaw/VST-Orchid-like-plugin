@@ -31,12 +31,15 @@ private:
     juce::Label        bassLabel  { {}, "BASS CH" };
     juce::ToggleButton bassToggle { "Bass" };
 
+    juce::ToggleButton keyModeToggle { "Key Mode" };
+
     using ComboAtt  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     using ButtonAtt = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     std::unique_ptr<ComboAtt>  voicingAttachment;
     std::unique_ptr<ComboAtt>  octaveAttachment;
     std::unique_ptr<ButtonAtt> bassAttachment;
+    std::unique_ptr<ButtonAtt> keyModeAttachment;
 
     static const juce::Colour kBgColour;
     static const juce::Colour kTextColour;

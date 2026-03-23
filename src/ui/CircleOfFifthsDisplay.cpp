@@ -51,7 +51,9 @@ const juce::Colour CircleOfFifthsDisplay::kActive[3]     = {
     juce::Colour(0xFF4A7AC8),   // minor – blue
     juce::Colour(0xFF9045B5),   // dim   – purple
 };
-const juce::Colour CircleOfFifthsDisplay::kNoteHint      = juce::Colour(0xFF3A2C18);
+const juce::Colour CircleOfFifthsDisplay::kActiveNonDiat = juce::Colour(0xFF992222);  // red — chord is outside the scale
+const juce::Colour CircleOfFifthsDisplay::kNoteHint      = juce::Colour(0xFF3A2C18);  // diatonic chord tone (on its ring)
+const juce::Colour CircleOfFifthsDisplay::kNoteOutOfScale= juce::Colour(0xFF4A1515);  // chord tone not in the scale
 const juce::Colour CircleOfFifthsDisplay::kSep           = juce::Colour(0xFF26263E);
 const juce::Colour CircleOfFifthsDisplay::kText[3]       = {
     juce::Colour(0xFFD8D8EE),   // major text – clearly readable on dark bg
@@ -61,7 +63,8 @@ const juce::Colour CircleOfFifthsDisplay::kText[3]       = {
 const juce::Colour CircleOfFifthsDisplay::kTextActive    = juce::Colours::white;
 const juce::Colour CircleOfFifthsDisplay::kTextDiatonic  = juce::Colour(0xFF88DDAA);
 const juce::Colour CircleOfFifthsDisplay::kTextTonic     = juce::Colour(0xFFE0A855);
-const juce::Colour CircleOfFifthsDisplay::kTextScaleTone = juce::Colour(0xFF7080A0);  // dim bluish
+const juce::Colour CircleOfFifthsDisplay::kTextScaleTone  = juce::Colour(0xFF7080A0);  // dim bluish
+const juce::Colour CircleOfFifthsDisplay::kTextOutOfScale = juce::Colour(0xFFDD7777);  // pinkish-red
 
 // -----------------------------------------------------------------------
 // Constructor
@@ -358,30 +361,42 @@ bool CircleOfFifthsDisplay::isChordNote(int pc) const
 }
 
 // -----------------------------------------------------------------------
-// Colour selection (priority: active > note-hint > tonic > diatonic > scale-tone > base)
+// Colour selection
+// Priority: active > chord-tone-hint > tonic > diatonic > scale-tone > base
 // -----------------------------------------------------------------------
 juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring, int key, int scale) const
 {
-    if (isActive(pos, ring))
-        return kActive[ring];
-
+    const int s  = juce::jlimit(0, 12, scale);
     const int pc = (ring == 0) ? kPos[pos].majorRoot
                  : (ring == 1) ? kPos[pos].minorRoot
                  :               kPos[pos].dimRoot;
 
-    // Note-hint only on the outer (major) ring
-    if (ring == 0 && activeRoot >= 0 && isChordNote(pc))
-        return kNoteHint;
+    // Active chord — colour changes if it's outside the selected scale
+    if (isActive(pos, ring))
+        return isDiatonicK(pc, ring, key, s) ? kActive[ring] : kActiveNonDiat;
+
+    // Chord tone hints: show on whichever ring matches the pc's diatonic role.
+    // If the pc is in none of the diatonic rings, flag it on the outer ring.
+    if (activeRoot >= 0 && isChordNote(pc))
+    {
+        const bool dMaj = isDiatonicK(pc, 0, key, s);
+        const bool dMin = isDiatonicK(pc, 1, key, s);
+        const bool dDim = isDiatonicK(pc, 2, key, s);
+
+        if (ring == 0 && dMaj) return kNoteHint;
+        if (ring == 1 && dMin) return kNoteHint;
+        if (ring == 2 && dDim) return kNoteHint;
+        // Not diatonic in any ring — show on the outer ring as a warning
+        if (ring == 0 && !dMaj && !dMin && !dDim) return kNoteOutOfScale;
+    }
 
     // Tonic accent on the ring that hosts the tonic chord for this scale
-    const int s = juce::jlimit(0, 12, scale);
     if (ring == kTonicRing[s] && activeRoot < 0 && pc == key)
         return kTonic;
 
     if (isDiatonicK(pc, ring, key, s))
         return kDiatonic[ring];
 
-    // Scale tone without a valid triad — subtle faint hint across all rings
     if (isScaleToneOnlyK(pc, key, s))
         return kScaleTone;
 
@@ -473,18 +488,36 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
         const float a1 = startAngle + i * segAngle + gap;
         const float a2 = startAngle + (i + 1) * segAngle - gap;
 
+        // Helper: given a pc and which ring we're on, return the chord-tone text colour
+        // (or juce::Colour() if this ring shouldn't be treated as a chord-tone hint).
+        // ring 0 also carries the out-of-scale warning.
+        auto chordToneText = [&](int pc, int r) -> juce::Colour
+        {
+            if (activeRoot < 0 || !isChordNote(pc)) return {};
+            const bool dMaj = isDiatonicK(pc, 0, key, scale);
+            const bool dMin = isDiatonicK(pc, 1, key, scale);
+            const bool dDim = isDiatonicK(pc, 2, key, scale);
+            if (r == 0 && dMaj) return kTextDiatonic;
+            if (r == 1 && dMin) return kTextDiatonic;
+            if (r == 2 && dDim) return kTextDiatonic;
+            if (r == 0 && !dMaj && !dMin && !dDim) return kTextOutOfScale;
+            return {};
+        };
+
         // Major label
         {
+            const int pc   = kPos[i].majorRoot;
             bool active    = isActive(i, 0);
-            bool tonic     = !active && (activeRoot < 0) && (kPos[i].majorRoot == key)
-                                      && kTonicRing[scale] == 0;
-            bool diatonic  = !active && !tonic && isDiatonicK(kPos[i].majorRoot, 0, key, scale);
-            bool scaleTone = !active && !diatonic && isScaleToneOnlyK(kPos[i].majorRoot, key, scale);
-            juce::Colour txtCol = active    ? kTextActive
-                                : tonic     ? kTextTonic
-                                : diatonic  ? kTextDiatonic
-                                : scaleTone ? kTextScaleTone
-                                :             kText[0];
+            auto ctt       = chordToneText(pc, 0);
+            bool tonic     = !active && ctt == juce::Colour() && (activeRoot < 0) && (pc == key) && kTonicRing[scale] == 0;
+            bool diatonic  = !active && ctt == juce::Colour() && !tonic && isDiatonicK(pc, 0, key, scale);
+            bool scaleTone = !active && ctt == juce::Colour() && !diatonic && isScaleToneOnlyK(pc, key, scale);
+            juce::Colour txtCol = active               ? kTextActive
+                                : ctt != juce::Colour() ? ctt
+                                : tonic                ? kTextTonic
+                                : diatonic             ? kTextDiatonic
+                                : scaleTone            ? kTextScaleTone
+                                :                        kText[0];
             drawSegmentLabel(g, kPos[i].majorName,
                              arcMidpoint(a1, a2, rMajTxt),
                              majFontSz, true, txtCol, majLabelW);
@@ -492,16 +525,18 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
 
         // Minor label
         {
+            const int pc   = kPos[i].minorRoot;
             bool active    = isActive(i, 1);
-            bool tonic     = !active && (activeRoot < 0) && (kPos[i].minorRoot == key)
-                                      && kTonicRing[scale] == 1;
-            bool diatonic  = !active && !tonic && isDiatonicK(kPos[i].minorRoot, 1, key, scale);
-            bool scaleTone = !active && !diatonic && isScaleToneOnlyK(kPos[i].minorRoot, key, scale);
-            juce::Colour txtCol = active    ? kTextActive
-                                : tonic     ? kTextTonic
-                                : diatonic  ? kTextDiatonic
-                                : scaleTone ? kTextScaleTone
-                                :             kText[1];
+            auto ctt       = chordToneText(pc, 1);
+            bool tonic     = !active && ctt == juce::Colour() && (activeRoot < 0) && (pc == key) && kTonicRing[scale] == 1;
+            bool diatonic  = !active && ctt == juce::Colour() && !tonic && isDiatonicK(pc, 1, key, scale);
+            bool scaleTone = !active && ctt == juce::Colour() && !diatonic && isScaleToneOnlyK(pc, key, scale);
+            juce::Colour txtCol = active               ? kTextActive
+                                : ctt != juce::Colour() ? ctt
+                                : tonic                ? kTextTonic
+                                : diatonic             ? kTextDiatonic
+                                : scaleTone            ? kTextScaleTone
+                                :                        kText[1];
             drawSegmentLabel(g, kPos[i].minorName,
                              arcMidpoint(a1, a2, rMinTxt),
                              minFontSz, false, txtCol, minLabelW);
@@ -509,16 +544,18 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
 
         // Dim label
         {
+            const int pc   = kPos[i].dimRoot;
             bool active    = isActive(i, 2);
-            bool tonic     = !active && (activeRoot < 0) && (kPos[i].dimRoot == key)
-                                      && kTonicRing[scale] == 2;
-            bool diatonic  = !active && !tonic && isDiatonicK(kPos[i].dimRoot, 2, key, scale);
-            bool scaleTone = !active && !diatonic && isScaleToneOnlyK(kPos[i].dimRoot, key, scale);
-            juce::Colour txtCol = active    ? kTextActive
-                                : tonic     ? kTextTonic
-                                : diatonic  ? kTextDiatonic
-                                : scaleTone ? kTextScaleTone
-                                :             kText[2];
+            auto ctt       = chordToneText(pc, 2);
+            bool tonic     = !active && ctt == juce::Colour() && (activeRoot < 0) && (pc == key) && kTonicRing[scale] == 2;
+            bool diatonic  = !active && ctt == juce::Colour() && !tonic && isDiatonicK(pc, 2, key, scale);
+            bool scaleTone = !active && ctt == juce::Colour() && !diatonic && isScaleToneOnlyK(pc, key, scale);
+            juce::Colour txtCol = active               ? kTextActive
+                                : ctt != juce::Colour() ? ctt
+                                : tonic                ? kTextTonic
+                                : diatonic             ? kTextDiatonic
+                                : scaleTone            ? kTextScaleTone
+                                :                        kText[2];
             drawSegmentLabel(g, kPos[i].dimName,
                              arcMidpoint(a1, a2, rDimTxt),
                              dimFontSz, false, txtCol, dimLabelW);

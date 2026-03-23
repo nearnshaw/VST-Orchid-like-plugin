@@ -96,6 +96,9 @@ private:
     juce::AudioParameterFloat* pOutputGain      = nullptr;
     juce::AudioParameterBool*  pGlobalKeyMon    = nullptr;
     juce::AudioParameterBool*  pSynthEnabled    = nullptr;
+    juce::AudioParameterBool*  pKeyMode         = nullptr;
+    juce::AudioParameterInt*   pSelectedKey     = nullptr;
+    juce::AudioParameterInt*   pSelectedScale   = nullptr;
 
     // Previous parameter values to detect changes (avoid unnecessary updates)
     int   prevSynthEngine  = -1;

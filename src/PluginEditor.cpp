@@ -154,6 +154,17 @@ bool BegoniaEditor::keyStateChanged(bool isKeyDown, juce::Component*)
 
 void BegoniaEditor::timerCallback()
 {
+    // Release any monitored key that is no longer held according to the OS.
+    // This mirrors the keyStateChanged check but runs unconditionally every
+    // ~33 ms, catching missed key-up events in contexts where keyStateChanged
+    // is unreliable (DAW window focus changes, etc.).
+    {
+        static const int keyCodes[] = { '1', '2', '3', '4', 'q', 'w', 'e', 'r' };
+        for (int code : keyCodes)
+            if (!juce::KeyPress::isKeyCurrentlyDown(code))
+                processor.getKeyboardMapper().handleKeyUp(code);
+    }
+
     // Chord button visual feedback
     chordPanel.refresh();
 

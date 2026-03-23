@@ -58,6 +58,12 @@ bool KeyboardMapper::handleKeyDown(const juce::KeyPress& key)
     }
     else
     {
+        // W (AddM7) and E (AddMaj7) are mutually exclusive — a chord can't have
+        // both a dominant 7th and a major 7th simultaneously.
+        if (action.bit == ChordEngine::AddM7)
+            heldExtensions &= ~ChordEngine::AddMaj7;
+        else if (action.bit == ChordEngine::AddMaj7)
+            heldExtensions &= ~ChordEngine::AddM7;
         heldExtensions |= action.bit;
     }
 
@@ -123,7 +129,13 @@ void KeyboardMapper::injectChordType(uint8_t type, bool isDown)
 void KeyboardMapper::injectExtension(uint8_t ext, bool isDown)
 {
     if (isDown)
+    {
+        if (ext == ChordEngine::AddM7)
+            heldExtensions &= ~ChordEngine::AddMaj7;
+        else if (ext == ChordEngine::AddMaj7)
+            heldExtensions &= ~ChordEngine::AddM7;
         heldExtensions |= ext;
+    }
     else
         heldExtensions &= ~ext;
     recomputeState();
