@@ -43,15 +43,18 @@ private:
     // Key selector
     // ---------------------------------------------------------------
     juce::AudioProcessorValueTreeState& apvts;
-    juce::Label    keyLabel  { {}, "KEY" };
+    juce::Label    keyLabel   { {}, "ROOT" };
     juce::ComboBox keyCombo;
+    juce::Label    scaleLabel { {}, "SCALE" };
+    juce::ComboBox scaleCombo;
     using ComboAtt = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     std::unique_ptr<ComboAtt> keyAtt;
+    std::unique_ptr<ComboAtt> scaleAtt;
 
-    // Cached key pitch class (0=C … 11=B) — updated from onChange so paint()
-    // never has to call into combo/APVTS internals.  Initialized after the
-    // attachment fires its sendInitialUpdate(), so it's always valid.
-    int m_key = 0;
+    // Cached key pitch class (0=C … 11=B) and scale index (0=Major … 11=Hungarian Minor)
+    // — updated from onChange so paint() never has to call into combo/APVTS internals.
+    int m_key   = 0;
+    int m_scale = 0;
 
     // ---------------------------------------------------------------
     // Geometry (set in resized)
@@ -73,8 +76,8 @@ private:
     juce::Path          makeSegment  (float a1, float a2, float r1, float r2) const;
     juce::Point<float>  arcMidpoint  (float a1, float a2, float r) const;
 
-    // ring: 0=major outer, 1=minor middle, 2=dim inner; key: 0=C … 11=B
-    juce::Colour        segmentColour(int pos, int ring, int key) const;
+    // ring: 0=major outer, 1=minor middle, 2=dim inner; key: 0=C … 11=B; scale: 0=Major … 11=Hungarian Minor
+    juce::Colour        segmentColour(int pos, int ring, int key, int scale) const;
 
     void drawSegmentLabel(juce::Graphics& g, const juce::String& text,
                           juce::Point<float> pt, float size, bool bold,
@@ -93,14 +96,16 @@ private:
     // ---------------------------------------------------------------
     // [ring]: 0=major, 1=minor, 2=dim
     static const juce::Colour kBg;
-    static const juce::Colour kBase     [3];
-    static const juce::Colour kDiatonic [3];
-    static const juce::Colour kTonic;           // I chord when no active chord
-    static const juce::Colour kActive   [3];
+    static const juce::Colour kBase      [3];
+    static const juce::Colour kDiatonic  [3];
+    static const juce::Colour kTonic;           // tonic chord when no active chord
+    static const juce::Colour kScaleTone;       // in-scale note with no standard triad
+    static const juce::Colour kActive    [3];
     static const juce::Colour kNoteHint;
     static const juce::Colour kSep;
-    static const juce::Colour kText     [3];
+    static const juce::Colour kText      [3];
     static const juce::Colour kTextActive;
     static const juce::Colour kTextDiatonic;
     static const juce::Colour kTextTonic;
+    static const juce::Colour kTextScaleTone;
 };

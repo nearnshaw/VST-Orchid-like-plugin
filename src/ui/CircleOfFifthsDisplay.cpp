@@ -45,6 +45,7 @@ const juce::Colour CircleOfFifthsDisplay::kDiatonic[3]   = {
     juce::Colour(0xFF3C1A54),   // dim   – brighter purple
 };
 const juce::Colour CircleOfFifthsDisplay::kTonic         = juce::Colour(0xFF2C2010);
+const juce::Colour CircleOfFifthsDisplay::kScaleTone     = juce::Colour(0xFF1C2230);  // faint blue — in scale but no triad
 const juce::Colour CircleOfFifthsDisplay::kActive[3]     = {
     juce::Colour(0xFFE06B3A),   // major – orange accent
     juce::Colour(0xFF4A7AC8),   // minor – blue
@@ -60,6 +61,7 @@ const juce::Colour CircleOfFifthsDisplay::kText[3]       = {
 const juce::Colour CircleOfFifthsDisplay::kTextActive    = juce::Colours::white;
 const juce::Colour CircleOfFifthsDisplay::kTextDiatonic  = juce::Colour(0xFF88DDAA);
 const juce::Colour CircleOfFifthsDisplay::kTextTonic     = juce::Colour(0xFFE0A855);
+const juce::Colour CircleOfFifthsDisplay::kTextScaleTone = juce::Colour(0xFF7080A0);  // dim bluish
 
 // -----------------------------------------------------------------------
 // Constructor
@@ -67,26 +69,18 @@ const juce::Colour CircleOfFifthsDisplay::kTextTonic     = juce::Colour(0xFFE0A8
 CircleOfFifthsDisplay::CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState& apvts_)
     : apvts(apvts_)
 {
-    // Key dropdown (all sharps, C=0 … B=11)
+    // Root note dropdown (all sharps, C=0 … B=11)
     static const char* keyNames[] = {
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
     };
     for (int i = 0; i < 12; ++i)
         keyCombo.addItem(keyNames[i], i + 1);   // item IDs are 1-indexed
     keyCombo.setSelectedId(1, juce::dontSendNotification);
-
     keyAtt = std::make_unique<ComboAtt>(apvts_, ParamIDs::SelectedKey, keyCombo);
-
-    // After sendInitialUpdate() the combo has the right item selected.
-    // Read it now so m_key is valid before the first paint().
-    // Item IDs were assigned as (pitchClass + 1), so pitchClass = id - 1.
     {
         const int id = keyCombo.getSelectedId();
         m_key = juce::jlimit(0, 11, id > 0 ? id - 1 : 0);
     }
-
-    // Keep m_key in sync whenever the combo changes (user interaction or
-    // preset load both route through here via the attachment).
     keyCombo.onChange = [this]()
     {
         const int id = keyCombo.getSelectedId();
@@ -94,12 +88,40 @@ CircleOfFifthsDisplay::CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState&
         repaint();
     };
 
-    keyLabel.setFont(juce::FontOptions(10.0f).withStyle("Bold"));
-    keyLabel.setColour(juce::Label::textColourId, kText[0].withAlpha(0.7f));
-    keyLabel.setJustificationType(juce::Justification::centredRight);
+    // Scale/mode dropdown (item ID = index + 1)
+    static const char* scaleNames[] = {
+        "Major", "Minor", "Dorian", "Phrygian", "Lydian", "Mixolydian",
+        "Locrian", "Harm. Minor", "Mel. Minor", "Lydian Dom", "Phryg. Dom", "Hungarian",
+        "Mxlyd b6"
+    };
+    for (int i = 0; i < 13; ++i)
+        scaleCombo.addItem(scaleNames[i], i + 1);
+    scaleCombo.setSelectedId(1, juce::dontSendNotification);
+    scaleAtt = std::make_unique<ComboAtt>(apvts_, ParamIDs::SelectedScale, scaleCombo);
+    {
+        const int id = scaleCombo.getSelectedId();
+        m_scale = juce::jlimit(0, 12, id > 0 ? id - 1 : 0);
+    }
+    scaleCombo.onChange = [this]()
+    {
+        const int id = scaleCombo.getSelectedId();
+        m_scale = juce::jlimit(0, 12, id > 0 ? id - 1 : 0);
+        repaint();
+    };
+
+    auto styleLabel = [this](juce::Label& lbl)
+    {
+        lbl.setFont(juce::FontOptions(10.0f).withStyle("Bold"));
+        lbl.setColour(juce::Label::textColourId, kText[0].withAlpha(0.7f));
+        lbl.setJustificationType(juce::Justification::centredRight);
+    };
+    styleLabel(keyLabel);
+    styleLabel(scaleLabel);
 
     addAndMakeVisible(keyLabel);
     addAndMakeVisible(keyCombo);
+    addAndMakeVisible(scaleLabel);
+    addAndMakeVisible(scaleCombo);
 }
 
 // -----------------------------------------------------------------------
@@ -137,17 +159,25 @@ void CircleOfFifthsDisplay::resized()
     const int h   = getHeight();
     const int pad = 6;
 
-    // Key selector strip at top
+    // Two-combo selector strip at top:  [ROOT ▼]  [SCALE ▼]
     const int selectorH = 26;
-    const int labelW    = 36;
-    const int comboW    = 72;
-    keyLabel.setBounds(w / 2 - labelW - comboW / 2 - 4, pad, labelW, selectorH);
-    keyCombo.setBounds(w / 2 - comboW / 2, pad, comboW, selectorH);
+    const int keyLblW   = 34;
+    const int keyW      = 56;
+    const int scaleLblW = 42;
+    const int scaleW    = 112;
+    const int gap       = 8;
+    const int totalW    = keyLblW + keyW + gap + scaleLblW + scaleW;
+    int x = (w - totalW) / 2;
+
+    keyLabel .setBounds(x,                             pad, keyLblW,   selectorH);
+    keyCombo .setBounds(x + keyLblW,                   pad, keyW,      selectorH);
+    scaleLabel.setBounds(x + keyLblW + keyW + gap,     pad, scaleLblW, selectorH);
+    scaleCombo.setBounds(x + keyLblW + keyW + gap + scaleLblW, pad, scaleW, selectorH);
 
     // Circle area below selector
-    const int circleY = pad + selectorH + pad;
-    const int circleH = h - circleY - pad;
-    const int circleW = w - pad * 2;
+    const int circleY  = pad + selectorH + pad;
+    const int circleH  = h - circleY - pad;
+    const int circleW  = w - pad * 2;
     const int diameter = std::min(circleW, circleH);
 
     centre = { (float)(pad + circleW / 2), (float)(circleY + circleH / 2) };
@@ -193,21 +223,122 @@ int CircleOfFifthsDisplay::selectedKey() const
     return m_key;   // updated in onChange; never calls into APVTS or combo internals
 }
 
-// key is passed in so this is never called with a stale/different value mid-paint
-static bool isDiatonicK(int pc, int ring, int K)
+// Diatonic chord roots by scale and ring type.
+// Each row lists semitone offsets from root K; -1 = sentinel (end of list).
+// ring 0=major, ring 1=minor, ring 2=dim.
+// Scales: 0=Major, 1=Nat.Minor, 2=Dorian, 3=Phrygian, 4=Lydian, 5=Mixolydian,
+//         6=Locrian, 7=Harm.Minor, 8=Mel.Minor, 9=Lydian Dom, 10=Phryg.Dom,
+//         11=Hungarian, 12=Mixolydian b6
+static const int kMajOffs[13][4] = {
+    { 0, 5, 7,-1}, // Major
+    { 3, 8,10,-1}, // Natural Minor
+    { 3, 5,10,-1}, // Dorian
+    { 1, 3, 8,-1}, // Phrygian
+    { 0, 2, 7,-1}, // Lydian
+    { 0, 5,10,-1}, // Mixolydian
+    { 1, 6, 8,-1}, // Locrian
+    { 7, 8,-1,-1}, // Harmonic Minor
+    { 5, 7,-1,-1}, // Melodic Minor
+    { 0, 2,-1,-1}, // Lydian Dominant
+    { 0, 1,-1,-1}, // Phrygian Dominant
+    { 7, 8,-1,-1}, // Hungarian Minor
+    { 0,10,-1,-1}, // Mixolydian b6
+};
+static const int kMinOffs[13][4] = {
+    { 2, 4, 9,-1}, // Major
+    { 0, 5, 7,-1}, // Natural Minor
+    { 0, 2, 7,-1}, // Dorian
+    { 0, 5,10,-1}, // Phrygian
+    { 4, 9,11,-1}, // Lydian
+    { 2, 7, 9,-1}, // Mixolydian
+    { 3, 5,10,-1}, // Locrian
+    { 0, 5,-1,-1}, // Harmonic Minor
+    { 0, 2,-1,-1}, // Melodic Minor
+    { 7, 9,-1,-1}, // Lydian Dominant
+    { 5,10,-1,-1}, // Phrygian Dominant
+    { 0,11,-1,-1}, // Hungarian Minor
+    { 5, 7,-1,-1}, // Mixolydian b6
+};
+static const int kDimOffs[13][4] = {
+    {11,-1,-1,-1}, // Major
+    { 2,-1,-1,-1}, // Natural Minor
+    { 9,-1,-1,-1}, // Dorian
+    { 7,-1,-1,-1}, // Phrygian
+    { 6,-1,-1,-1}, // Lydian
+    { 4,-1,-1,-1}, // Mixolydian
+    { 0,-1,-1,-1}, // Locrian
+    { 2,11,-1,-1}, // Harmonic Minor
+    { 9,11,-1,-1}, // Melodic Minor
+    { 4, 6,-1,-1}, // Lydian Dominant
+    { 4, 7,-1,-1}, // Phrygian Dominant
+    { 6,-1,-1,-1}, // Hungarian Minor
+    { 2, 4,-1,-1}, // Mixolydian b6
+};
+
+// Which ring hosts the tonic (i/I/i°) chord for each scale
+static const int kTonicRing[13] = {
+    0, // Major          — I  is major
+    1, // Natural Minor  — i  is minor
+    1, // Dorian         — i  is minor
+    1, // Phrygian       — i  is minor
+    0, // Lydian         — I  is major
+    0, // Mixolydian     — I  is major
+    2, // Locrian        — i° is dim
+    1, // Harmonic Minor — i  is minor
+    1, // Melodic Minor  — i  is minor
+    0, // Lydian Dom     — I  is major
+    0, // Phrygian Dom   — I  is major
+    1, // Hungarian Min  — i  is minor
+    0, // Mixolydian b6  — I  is major
+};
+
+// Scale-tone-only pitch-class offsets from K: in the scale but no standard triad.
+// These come from scale degrees that only form augmented triads (ignored in our system).
+// -1 = sentinel.
+static const int kScaleOnly[13][3] = {
+    {-1,-1,-1}, // Major          — all scale tones have triads
+    {-1,-1,-1}, // Natural Minor
+    {-1,-1,-1}, // Dorian
+    {-1,-1,-1}, // Phrygian
+    {-1,-1,-1}, // Lydian
+    {-1,-1,-1}, // Mixolydian
+    {-1,-1,-1}, // Locrian
+    { 3,-1,-1}, // Harmonic Minor — bIII (augmented)
+    { 3,-1,-1}, // Melodic Minor  — bIII (augmented)
+    {10,-1,-1}, // Lydian Dom     — bVII (augmented)
+    { 8,-1,-1}, // Phrygian Dom   — bVI  (augmented)
+    { 2, 3,-1}, // Hungarian Min  — II and bIII (no standard triads)
+    { 8,-1,-1}, // Mixolydian b6  — bVI  (augmented)
+};
+
+static bool isDiatonicK(int pc, int ring, int K, int scale)
 {
-    if (ring == 0)   // major: I (K), IV (K+5), V (K+7)
-        return pc == K % 12 || pc == (K + 5) % 12 || pc == (K + 7) % 12;
-    if (ring == 1)   // minor: ii (K+2), iii (K+4), vi (K+9)
-        return pc == (K + 2) % 12 || pc == (K + 4) % 12 || pc == (K + 9) % 12;
-    if (ring == 2)   // dim: vii° (K+11)
-        return pc == (K + 11) % 12;
+    const int (*table)[4] = (ring == 0) ? kMajOffs
+                          : (ring == 1) ? kMinOffs
+                          :               kDimOffs;
+    const int s = juce::jlimit(0, 12, scale);
+    for (int j = 0; j < 4; ++j)
+    {
+        if (table[s][j] < 0) break;
+        if (pc == (K + table[s][j]) % 12) return true;
+    }
+    return false;
+}
+
+static bool isScaleToneOnlyK(int pc, int K, int scale)
+{
+    const int s = juce::jlimit(0, 12, scale);
+    for (int j = 0; j < 3; ++j)
+    {
+        if (kScaleOnly[s][j] < 0) break;
+        if (pc == (K + kScaleOnly[s][j]) % 12) return true;
+    }
     return false;
 }
 
 bool CircleOfFifthsDisplay::isDiatonic(int pc, int ring) const
 {
-    return isDiatonicK(pc, ring, selectedKey());
+    return isDiatonicK(pc, ring, m_key, m_scale);
 }
 
 bool CircleOfFifthsDisplay::isActive(int pos, int ring) const
@@ -227,9 +358,9 @@ bool CircleOfFifthsDisplay::isChordNote(int pc) const
 }
 
 // -----------------------------------------------------------------------
-// Colour selection (priority: active > note-hint > diatonic > base)
+// Colour selection (priority: active > note-hint > tonic > diatonic > scale-tone > base)
 // -----------------------------------------------------------------------
-juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring, int key) const
+juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring, int key, int scale) const
 {
     if (isActive(pos, ring))
         return kActive[ring];
@@ -242,12 +373,17 @@ juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring, int key) co
     if (ring == 0 && activeRoot >= 0 && isChordNote(pc))
         return kNoteHint;
 
-    // Tonic chord (I) gets its own subtle accent — only major ring, no active chord playing
-    if (ring == 0 && activeRoot < 0 && pc == key)
+    // Tonic accent on the ring that hosts the tonic chord for this scale
+    const int s = juce::jlimit(0, 12, scale);
+    if (ring == kTonicRing[s] && activeRoot < 0 && pc == key)
         return kTonic;
 
-    if (isDiatonicK(pc, ring, key))
+    if (isDiatonicK(pc, ring, key, s))
         return kDiatonic[ring];
+
+    // Scale tone without a valid triad — subtle faint hint across all rings
+    if (isScaleToneOnlyK(pc, key, s))
+        return kScaleTone;
 
     return kBase[ring];
 }
@@ -272,8 +408,9 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
     // Small gap between segments for readability
     const float gap      = 0.012f;
 
-    // Compute key once for the whole frame — avoids any multi-call inconsistency
-    const int key = selectedKey();
+    // Snapshot key and scale once for the whole frame
+    const int key   = m_key;
+    const int scale = m_scale;
 
     // Precomputed ring absolute radii
     const float rMajO = outerR * kMajOuter;
@@ -308,19 +445,19 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
         const float fa2 = arcStartAngle + (i + 1) * segAngle - gap;
 
         // Major (outer) ring
-        g.setColour(segmentColour(i, 0, key));
+        g.setColour(segmentColour(i, 0, key, scale));
         g.fillPath(makeSegment(fa1, fa2, rMajI, rMajO));
         g.setColour(kSep);
         g.strokePath(makeSegment(fa1, fa2, rMajI, rMajO), juce::PathStrokeType(0.8f));
 
         // Minor (middle) ring
-        g.setColour(segmentColour(i, 1, key));
+        g.setColour(segmentColour(i, 1, key, scale));
         g.fillPath(makeSegment(fa1, fa2, rMinI, rMinO));
         g.setColour(kSep);
         g.strokePath(makeSegment(fa1, fa2, rMinI, rMinO), juce::PathStrokeType(0.6f));
 
         // Dim (inner) ring
-        g.setColour(segmentColour(i, 2, key));
+        g.setColour(segmentColour(i, 2, key, scale));
         g.fillPath(makeSegment(fa1, fa2, rDimI, rDimO));
         g.setColour(kSep);
         g.strokePath(makeSegment(fa1, fa2, rDimI, rDimO), juce::PathStrokeType(0.5f));
@@ -338,13 +475,16 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
 
         // Major label
         {
-            bool active   = isActive(i, 0);
-            bool tonic    = !active && (activeRoot < 0) && (kPos[i].majorRoot == key);
-            bool diatonic = !active && !tonic && isDiatonicK(kPos[i].majorRoot, 0, key);
-            juce::Colour txtCol = active   ? kTextActive
-                                : tonic    ? kTextTonic
-                                : diatonic ? kTextDiatonic
-                                :            kText[0];
+            bool active    = isActive(i, 0);
+            bool tonic     = !active && (activeRoot < 0) && (kPos[i].majorRoot == key)
+                                      && kTonicRing[scale] == 0;
+            bool diatonic  = !active && !tonic && isDiatonicK(kPos[i].majorRoot, 0, key, scale);
+            bool scaleTone = !active && !diatonic && isScaleToneOnlyK(kPos[i].majorRoot, key, scale);
+            juce::Colour txtCol = active    ? kTextActive
+                                : tonic     ? kTextTonic
+                                : diatonic  ? kTextDiatonic
+                                : scaleTone ? kTextScaleTone
+                                :             kText[0];
             drawSegmentLabel(g, kPos[i].majorName,
                              arcMidpoint(a1, a2, rMajTxt),
                              majFontSz, true, txtCol, majLabelW);
@@ -352,11 +492,16 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
 
         // Minor label
         {
-            bool active   = isActive(i, 1);
-            bool diatonic = !active && isDiatonicK(kPos[i].minorRoot, 1, key);
-            juce::Colour txtCol = active   ? kTextActive
-                                : diatonic ? kTextDiatonic
-                                :            kText[1];
+            bool active    = isActive(i, 1);
+            bool tonic     = !active && (activeRoot < 0) && (kPos[i].minorRoot == key)
+                                      && kTonicRing[scale] == 1;
+            bool diatonic  = !active && !tonic && isDiatonicK(kPos[i].minorRoot, 1, key, scale);
+            bool scaleTone = !active && !diatonic && isScaleToneOnlyK(kPos[i].minorRoot, key, scale);
+            juce::Colour txtCol = active    ? kTextActive
+                                : tonic     ? kTextTonic
+                                : diatonic  ? kTextDiatonic
+                                : scaleTone ? kTextScaleTone
+                                :             kText[1];
             drawSegmentLabel(g, kPos[i].minorName,
                              arcMidpoint(a1, a2, rMinTxt),
                              minFontSz, false, txtCol, minLabelW);
@@ -364,11 +509,16 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
 
         // Dim label
         {
-            bool active   = isActive(i, 2);
-            bool diatonic = !active && isDiatonicK(kPos[i].dimRoot, 2, key);
-            juce::Colour txtCol = active   ? kTextActive
-                                : diatonic ? kTextDiatonic
-                                :            kText[2];
+            bool active    = isActive(i, 2);
+            bool tonic     = !active && (activeRoot < 0) && (kPos[i].dimRoot == key)
+                                      && kTonicRing[scale] == 2;
+            bool diatonic  = !active && !tonic && isDiatonicK(kPos[i].dimRoot, 2, key, scale);
+            bool scaleTone = !active && !diatonic && isScaleToneOnlyK(kPos[i].dimRoot, key, scale);
+            juce::Colour txtCol = active    ? kTextActive
+                                : tonic     ? kTextTonic
+                                : diatonic  ? kTextDiatonic
+                                : scaleTone ? kTextScaleTone
+                                :             kText[2];
             drawSegmentLabel(g, kPos[i].dimName,
                              arcMidpoint(a1, a2, rDimTxt),
                              dimFontSz, false, txtCol, dimLabelW);

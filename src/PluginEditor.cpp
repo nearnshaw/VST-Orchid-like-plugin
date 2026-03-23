@@ -142,8 +142,9 @@ bool BegoniaEditor::keyStateChanged(bool isKeyDown, juce::Component*)
 {
     if (!isKeyDown)
     {
-        static const int keyCodes[] = { '1', '2', '3', '4', 'q', 'w', 'e', 'r',
-                                         'Q', 'W', 'E', 'R' };
+        // Only check lowercase: isKeyCurrentlyDown('Q') would always return false
+        // when Q is held without Shift, incorrectly clearing the Add6 bit.
+        static const int keyCodes[] = { '1', '2', '3', '4', 'q', 'w', 'e', 'r' };
         for (int code : keyCodes)
             if (!juce::KeyPress::isKeyCurrentlyDown(code))
                 processor.getKeyboardMapper().handleKeyUp(code);

@@ -19,6 +19,7 @@ namespace ParamIDs
     inline constexpr auto OutputGain       = "outputGain";
     inline constexpr auto GlobalKeyMonitor = "globalKeyMonitor";
     inline constexpr auto SelectedKey      = "selectedKey";
+    inline constexpr auto SelectedScale    = "selectedScale";
     inline constexpr auto SynthEnabled     = "synthEnabled";
 }
 
@@ -95,6 +96,10 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // Selected key for circle of fifths diatonic highlighting (0=C … 11=B)
     params.push_back(std::make_unique<AudioParameterInt>(
         ParamIDs::SelectedKey, "Key", 0, 11, 0));
+
+    // Selected scale/mode (0=Major … 12=Mixolydian b6)
+    params.push_back(std::make_unique<AudioParameterInt>(
+        ParamIDs::SelectedScale, "Scale", 0, 12, 0));
 
     return { params.begin(), params.end() };
 }
