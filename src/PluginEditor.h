@@ -6,6 +6,7 @@
 #include "ui/SynthPanel.h"
 #include "ui/MidiConfigPanel.h"
 #include "ui/KeyboardDisplay.h"
+#include "ui/CircleOfFifthsDisplay.h"
 
 class OrchidEditor : public juce::AudioProcessorEditor,
                      public juce::KeyListener,
@@ -30,11 +31,12 @@ private:
     OrchidProcessor& processor;
 
     // Panels
-    ChordButtonPanel  chordPanel;
-    VoicingPanel      voicingPanel;
-    SynthPanel        synthPanel;
-    MidiConfigPanel   midiConfigPanel;
-    KeyboardDisplay   keyboardDisplay;
+    ChordButtonPanel       chordPanel;
+    VoicingPanel           voicingPanel;
+    SynthPanel             synthPanel;
+    MidiConfigPanel        midiConfigPanel;
+    KeyboardDisplay        keyboardDisplay;
+    CircleOfFifthsDisplay  circleDisplay;
 
     // Header controls
     juce::Label        titleLabel  { {}, "ORCHID" };
@@ -50,12 +52,13 @@ private:
     static const juce::Colour kAccentColour;
 
     // Layout constants
-    static constexpr int kWidth       = 820;
-    static constexpr int kHeight      = 500;
-    static constexpr int kHeaderH     = 36;
-    static constexpr int kChordPanelW = 130;
-    static constexpr int kMidiBarH    = 52;
-    static constexpr int kKeyboardH   = 70;
+    static constexpr int kWidth        = 1100;
+    static constexpr int kHeight       = 520;
+    static constexpr int kHeaderH      = 36;
+    static constexpr int kChordPanelW  = 130;
+    static constexpr int kCirclePanelW = 370;
+    static constexpr int kMidiBarH     = 52;
+    static constexpr int kKeyboardH    = 70;
 
     void grabFocusSafely();
 

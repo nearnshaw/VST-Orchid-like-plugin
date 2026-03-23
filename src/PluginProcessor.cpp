@@ -94,6 +94,9 @@ void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                 currentBassNote = -1;
                 lastRootNote.store(-1, std::memory_order_release);
                 lastChordName = "";
+                displayNotesMask.store(0,  std::memory_order_release);
+                displayRootPC.store   (-1, std::memory_order_release);
+                displayChordType.store(0,  std::memory_order_release);
             }
         }
         else if (msg.isAllNotesOff() || msg.isAllSoundOff())
@@ -127,6 +130,14 @@ void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             currentNotes    = newNotes;
             currentBassNote = newBass;
             lastChordName   = ChordEngine::getChordName(currentRootNote, chordType, extensions);
+
+            // Update circle-of-fifths display atomics
+            uint16_t mask = 0;
+            for (int note : currentNotes)
+                mask |= uint16_t(1) << (note % 12);
+            displayNotesMask.store(mask,                          std::memory_order_release);
+            displayRootPC.store   (int8_t(currentRootNote % 12), std::memory_order_release);
+            displayChordType.store(chordType,                     std::memory_order_release);
         }
     }
     else if (chordType == 0 && extensions == 0 && !currentNotes.empty())
@@ -138,6 +149,9 @@ void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         currentNotes.clear();
         currentBassNote = -1;
         lastChordName = "";
+        displayNotesMask.store(0,  std::memory_order_release);
+        displayRootPC.store   (-1, std::memory_order_release);
+        displayChordType.store(0,  std::memory_order_release);
     }
 
     // Render synth audio

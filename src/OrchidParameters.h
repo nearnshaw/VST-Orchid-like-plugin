@@ -18,6 +18,7 @@ namespace ParamIDs
     inline constexpr auto MidiOutEnabled   = "midiOutEnabled";
     inline constexpr auto OutputGain       = "outputGain";
     inline constexpr auto GlobalKeyMonitor = "globalKeyMonitor";
+    inline constexpr auto SelectedKey      = "selectedKey";
 }
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
@@ -85,6 +86,10 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // Global key monitor (macOS)
     params.push_back(std::make_unique<AudioParameterBool>(
         ParamIDs::GlobalKeyMonitor, "Global Key Monitor", false));
+
+    // Selected key for circle of fifths diatonic highlighting (0=C … 11=B)
+    params.push_back(std::make_unique<AudioParameterInt>(
+        ParamIDs::SelectedKey, "Key", 0, 11, 0));
 
     return { params.begin(), params.end() };
 }

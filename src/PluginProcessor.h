@@ -47,6 +47,15 @@ public:
     juce::String getLastChordName() const { return lastChordName; }
     int          getLastRootNote()  const { return lastRootNote.load(); }
 
+    struct ChordDisplayState {
+        int      rootPitchClass;   // -1 = no chord
+        uint8_t  chordType;
+        uint16_t notesBitmask;     // bit i set = pitch class i is in the chord
+    };
+    ChordDisplayState getChordDisplayState() const {
+        return { (int)displayRootPC.load(), displayChordType.load(), displayNotesMask.load() };
+    }
+
     // Bus layout
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 
@@ -98,9 +107,13 @@ private:
     float prevGain         = -1.0f;
     bool  prevGlobalKeyMon = false;
 
-    // For UI display
-    juce::String        lastChordName;
-    std::atomic<int>    lastRootNote { -1 };
+    // For UI display (read from timer callback on message thread)
+    juce::String          lastChordName;
+    std::atomic<int>      lastRootNote     { -1 };
+    // Circle of fifths display state (written on audio thread, read on UI thread)
+    std::atomic<int8_t>   displayRootPC    { -1 };   // pitch class, -1 = none
+    std::atomic<uint8_t>  displayChordType { 0 };
+    std::atomic<uint16_t> displayNotesMask { 0 };    // bit i = pitch class i is sounding
 
     void cacheParameterPointers();
     void updateSynthParameters();

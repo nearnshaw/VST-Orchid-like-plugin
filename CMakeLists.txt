@@ -52,6 +52,7 @@ target_sources(Orchid PRIVATE
     src/ui/SynthPanel.cpp
     src/ui/MidiConfigPanel.cpp
     src/ui/KeyboardDisplay.cpp
+    src/ui/CircleOfFifthsDisplay.cpp
 )
 
 target_compile_definitions(Orchid
