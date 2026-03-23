@@ -10,12 +10,11 @@ Get the latest pre-built binaries from the [**Releases**](../../releases/latest)
 
 | File | For |
 |------|-----|
-| `Begonia-VST3-macOS-arm64.zip` | Apple Silicon (M1/M2/M3/M4) — VST3 (Ableton, Reaper, Bitwig…) |
-| `Begonia-VST3-macOS-x86_64.zip` | Intel Mac — VST3 |
-| `Begonia-AU-macOS-arm64.zip` | Apple Silicon — Audio Unit (Logic Pro, GarageBand) |
-| `Begonia-AU-macOS-x86_64.zip` | Intel Mac — Audio Unit |
-| `Begonia-Standalone-macOS-arm64.zip` | Apple Silicon — Standalone app (no DAW needed) |
-| `Begonia-Standalone-macOS-x86_64.zip` | Intel Mac — Standalone app |
+| `Begonia-VST3-macOS.zip` | VST3 — Ableton, Reaper, Bitwig, etc. |
+| `Begonia-AU-macOS.zip` | Audio Unit — Logic Pro, GarageBand |
+| `Begonia-Standalone-macOS.zip` | Standalone app — no DAW needed |
+
+Builds target Apple Silicon (arm64). Intel Macs run these natively via Rosetta 2 — no extra steps needed.
 
 **System requirements:** macOS 12 or later.
 

@@ -7,30 +7,22 @@ on:
   pull_request:
     branches: [ main ]
   release:
-    types: [ published ]   # also fires when a release is created via the GitHub UI
+    types: [ published ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # suppress Node.js 20 deprecation warnings
 
 jobs:
   build:
-    name: Build (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-13
-            arch: x86_64
-          - os: macos-14
-            arch: arm64
-
-    runs-on: ${{ matrix.os }}
+    name: Build (macOS arm64)
+    runs-on: macos-14   # Apple Silicon — stable free-tier runner
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Ninja
-        run: brew install ninja
-
       - name: Configure
+        # cmake and ninja are pre-installed on GitHub-hosted macOS runners
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
@@ -41,22 +33,20 @@ jobs:
 
       - name: Package
         run: |
-          ARCH=${{ matrix.arch }}
           cd build/Begonia_artefacts
-          zip -r "$GITHUB_WORKSPACE/Begonia-VST3-macOS-${ARCH}.zip"        VST3/Begonia.vst3
-          zip -r "$GITHUB_WORKSPACE/Begonia-AU-macOS-${ARCH}.zip"          AU/Begonia.component
-          zip -r "$GITHUB_WORKSPACE/Begonia-Standalone-macOS-${ARCH}.zip"  Standalone/Begonia.app
+          zip -r "$GITHUB_WORKSPACE/Begonia-VST3-macOS.zip"        VST3/Begonia.vst3
+          zip -r "$GITHUB_WORKSPACE/Begonia-AU-macOS.zip"          AU/Begonia.component
+          zip -r "$GITHUB_WORKSPACE/Begonia-Standalone-macOS.zip"  Standalone/Begonia.app
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Begonia-macOS-${{ matrix.arch }}
-          path: Begonia-*-macOS-${{ matrix.arch }}.zip
+          name: Begonia-macOS
+          path: Begonia-*-macOS.zip
           retention-days: 30
 
   release:
     name: Attach to Release
-    # Run when a tag is pushed OR a release is published via the GitHub UI
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
     needs: build
     runs-on: ubuntu-latest
@@ -64,11 +54,11 @@ jobs:
       contents: write
 
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
+          name: Begonia-macOS
           path: artifacts
-          merge-multiple: true
 
       - name: Attach zips to release
         uses: softprops/action-gh-release@v2
