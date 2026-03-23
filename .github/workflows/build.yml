@@ -1,0 +1,95 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            arch: x86_64
+          - os: macos-14
+            arch: arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build plugin
+        run: cmake --build build --target Begonia_VST3 Begonia_AU -j4
+
+      - name: Package VST3
+        run: |
+          cd build/Begonia_artefacts/VST3
+          zip -r "$GITHUB_WORKSPACE/Begonia-VST3-macOS-${{ matrix.arch }}.zip" Begonia.vst3
+
+      - name: Package AU
+        run: |
+          cd build/Begonia_artefacts/AU
+          zip -r "$GITHUB_WORKSPACE/Begonia-AU-macOS-${{ matrix.arch }}.zip" Begonia.component
+
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Begonia-VST3-macOS-${{ matrix.arch }}
+          path: Begonia-VST3-macOS-${{ matrix.arch }}.zip
+          retention-days: 30
+
+      - name: Upload AU artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Begonia-AU-macOS-${{ matrix.arch }}
+          path: Begonia-AU-macOS-${{ matrix.arch }}.zip
+          retention-days: 30
+
+  release:
+    name: Create Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            1. Download the zip for your Mac architecture:
+               - **Apple Silicon (M1/M2/M3/M4)** → `arm64` files
+               - **Intel Mac** → `x86_64` files
+            2. Unzip and copy to your plugin folder:
+               - **VST3** → `~/Library/Audio/Plug-Ins/VST3/`
+               - **AU** → `~/Library/Audio/Plug-Ins/Components/`
+            3. Right-click the plugin file → **Open** to bypass Gatekeeper on first run.
+            4. Rescan plugins in your DAW.
+
+            See the [README](https://github.com/${{ github.repository }}#readme) for full usage instructions.

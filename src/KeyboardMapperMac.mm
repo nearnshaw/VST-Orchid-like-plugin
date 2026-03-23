@@ -2,6 +2,7 @@
 
 #include "KeyboardMapper.h"
 #import <AppKit/AppKit.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 // macOS key codes for our mapped keys
 // These are hardware key codes (layout-independent)
@@ -63,6 +64,36 @@ int KeyboardMapper::macKeyCodeToJuce(int macKeyCode)
 {
     auto it = kMacKeyCodeToJuce.find((unsigned short)macKeyCode);
     return (it != kMacKeyCodeToJuce.end()) ? it->second : -1;
+}
+
+void KeyboardMapper::pollKeyStates()
+{
+    // Ordered to match kMacKeyCodeToJuce: 1, 2, 3, 4, q, w, e, r
+    struct KeyDef { CGKeyCode cgCode; int juceCode; };
+    static constexpr KeyDef kKeys[] = {
+        { 18, '1' }, { 19, '2' }, { 20, '3' }, { 21, '4' },
+        { 12, 'q' }, { 13, 'w' }, { 14, 'e' }, { 15, 'r' }
+    };
+    static constexpr int kCount = 8;
+
+    // Build a bitmask of currently-held keys via the HID layer.
+    // CGEventSourceKeyState bypasses JUCE's keysCurrentlyDown (which is wiped
+    // whenever any modifier key changes, causing false key-up events).
+    uint8_t newMask = 0;
+    for (int i = 0; i < kCount; ++i)
+        if (CGEventSourceKeyState(kCGEventSourceStateHIDSystemState, kKeys[i].cgCode))
+            newMask |= uint8_t(1 << i);
+
+    static uint8_t prevMask = 0;
+    const uint8_t pressed  = newMask & ~prevMask;   // newly down since last poll
+    const uint8_t released = prevMask & ~newMask;   // newly up since last poll
+    prevMask = newMask;
+
+    for (int i = 0; i < kCount; ++i)
+    {
+        if (pressed  & (1 << i)) handleKeyDown(juce::KeyPress(kKeys[i].juceCode));
+        if (released & (1 << i)) handleKeyUp(kKeys[i].juceCode);
+    }
 }
 
 #endif // __APPLE__

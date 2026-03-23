@@ -140,30 +140,20 @@ bool BegoniaEditor::keyPressed(const juce::KeyPress& key, juce::Component*)
 
 bool BegoniaEditor::keyStateChanged(bool isKeyDown, juce::Component*)
 {
+    // On key release, immediately sync state using HID polling (more reliable
+    // than isKeyCurrentlyDown, which is wiped on any modifier key change).
     if (!isKeyDown)
-    {
-        // Only check lowercase: isKeyCurrentlyDown('Q') would always return false
-        // when Q is held without Shift, incorrectly clearing the Add6 bit.
-        static const int keyCodes[] = { '1', '2', '3', '4', 'q', 'w', 'e', 'r' };
-        for (int code : keyCodes)
-            if (!juce::KeyPress::isKeyCurrentlyDown(code))
-                processor.getKeyboardMapper().handleKeyUp(code);
-    }
+        processor.getKeyboardMapper().pollKeyStates();
     return false;
 }
 
 void BegoniaEditor::timerCallback()
 {
-    // Release any monitored key that is no longer held according to the OS.
-    // This mirrors the keyStateChanged check but runs unconditionally every
-    // ~33 ms, catching missed key-up events in contexts where keyStateChanged
-    // is unreliable (DAW window focus changes, etc.).
-    {
-        static const int keyCodes[] = { '1', '2', '3', '4', 'q', 'w', 'e', 'r' };
-        for (int code : keyCodes)
-            if (!juce::KeyPress::isKeyCurrentlyDown(code))
-                processor.getKeyboardMapper().handleKeyUp(code);
-    }
+    // Poll hardware key state every ~33 ms.
+    // Uses CGEventSourceKeyState on macOS (bypasses JUCE keysCurrentlyDown which
+    // is wiped on any modifier key change) to catch both missed presses (keyboard
+    // ghosting) and missed releases (DAW focus changes, modifier key events).
+    processor.getKeyboardMapper().pollKeyStates();
 
     // Chord button visual feedback
     chordPanel.refresh();

@@ -51,6 +51,11 @@ public:
     void injectChordType (uint8_t type, bool isDown);
     void injectExtension (uint8_t ext,  bool isDown);
 
+    // Called from UI timer: polls hardware key state to catch missed presses/releases.
+    // On macOS uses CGEventSourceKeyState (bypasses JUCE tracking which is wiped on
+    // any modifier key change). On other platforms falls back to isKeyCurrentlyDown.
+    void pollKeyStates();
+
 private:
     // Key → (isExtension, bit)
     struct KeyAction { bool isExtension; uint8_t bit; };

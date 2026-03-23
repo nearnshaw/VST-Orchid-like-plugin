@@ -164,4 +164,13 @@ void KeyboardMapper::setGlobalMonitorEnabled(bool enable)
 void KeyboardMapper::installGlobalMonitor() {}
 void KeyboardMapper::removeGlobalMonitor()  {}
 int  KeyboardMapper::macKeyCodeToJuce(int)  { return -1; }
+
+void KeyboardMapper::pollKeyStates()
+{
+    // Fallback: use JUCE's isKeyCurrentlyDown for non-Apple platforms
+    static const int keyCodes[] = { '1', '2', '3', '4', 'q', 'w', 'e', 'r' };
+    for (int code : keyCodes)
+        if (!juce::KeyPress::isKeyCurrentlyDown(code))
+            handleKeyUp(code);
+}
 #endif
