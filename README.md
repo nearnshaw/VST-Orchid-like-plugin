@@ -10,10 +10,12 @@ Get the latest pre-built binaries from the [**Releases**](../../releases/latest)
 
 | File | For |
 |------|-----|
-| `Begonia-VST3-macOS-arm64.zip` | Apple Silicon (M1/M2/M3/M4) — VST3 |
+| `Begonia-VST3-macOS-arm64.zip` | Apple Silicon (M1/M2/M3/M4) — VST3 (Ableton, Reaper, Bitwig…) |
 | `Begonia-VST3-macOS-x86_64.zip` | Intel Mac — VST3 |
-| `Begonia-AU-macOS-arm64.zip` | Apple Silicon — Audio Unit (Logic, GarageBand) |
+| `Begonia-AU-macOS-arm64.zip` | Apple Silicon — Audio Unit (Logic Pro, GarageBand) |
 | `Begonia-AU-macOS-x86_64.zip` | Intel Mac — Audio Unit |
+| `Begonia-Standalone-macOS-arm64.zip` | Apple Silicon — Standalone app (no DAW needed) |
+| `Begonia-Standalone-macOS-x86_64.zip` | Intel Mac — Standalone app |
 
 **System requirements:** macOS 12 or later.
 
@@ -22,11 +24,12 @@ Get the latest pre-built binaries from the [**Releases**](../../releases/latest)
 ## Installation
 
 1. Unzip the downloaded file.
-2. Copy to your plugin folder:
+2. Copy to the appropriate location:
    - **VST3** → `~/Library/Audio/Plug-Ins/VST3/`
    - **AU** → `~/Library/Audio/Plug-Ins/Components/`
-3. **Bypass Gatekeeper** (required for unsigned builds): right-click the plugin file → **Open**, then confirm. You only need to do this once.
-4. Rescan plugins in your DAW.
+   - **Standalone** → `/Applications/` (or anywhere you like)
+3. **Bypass Gatekeeper** (required for unsigned builds): right-click the file → **Open**, then confirm in the dialog. You only need to do this once per file.
+4. Rescan plugins in your DAW (not needed for Standalone).
 
 For AU, run this after copying to force CoreAudio to detect the new component:
 ```bash

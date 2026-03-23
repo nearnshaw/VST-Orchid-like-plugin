@@ -3,9 +3,11 @@ name: Build
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
+    tags: [ '*' ]
   pull_request:
     branches: [ main ]
+  release:
+    types: [ published ]   # also fires when a release is created via the GitHub UI
 
 jobs:
   build:
@@ -29,40 +31,33 @@ jobs:
         run: brew install ninja
 
       - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
         run: |
-          cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build \
+            --target Begonia_VST3 Begonia_AU Begonia_Standalone \
+            -j4
 
-      - name: Build plugin
-        run: cmake --build build --target Begonia_VST3 Begonia_AU -j4
-
-      - name: Package VST3
+      - name: Package
         run: |
-          cd build/Begonia_artefacts/VST3
-          zip -r "$GITHUB_WORKSPACE/Begonia-VST3-macOS-${{ matrix.arch }}.zip" Begonia.vst3
+          ARCH=${{ matrix.arch }}
+          cd build/Begonia_artefacts
+          zip -r "$GITHUB_WORKSPACE/Begonia-VST3-macOS-${ARCH}.zip"        VST3/Begonia.vst3
+          zip -r "$GITHUB_WORKSPACE/Begonia-AU-macOS-${ARCH}.zip"          AU/Begonia.component
+          zip -r "$GITHUB_WORKSPACE/Begonia-Standalone-macOS-${ARCH}.zip"  Standalone/Begonia.app
 
-      - name: Package AU
-        run: |
-          cd build/Begonia_artefacts/AU
-          zip -r "$GITHUB_WORKSPACE/Begonia-AU-macOS-${{ matrix.arch }}.zip" Begonia.component
-
-      - name: Upload VST3 artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Begonia-VST3-macOS-${{ matrix.arch }}
-          path: Begonia-VST3-macOS-${{ matrix.arch }}.zip
-          retention-days: 30
-
-      - name: Upload AU artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Begonia-AU-macOS-${{ matrix.arch }}
-          path: Begonia-AU-macOS-${{ matrix.arch }}.zip
+          name: Begonia-macOS-${{ matrix.arch }}
+          path: Begonia-*-macOS-${{ matrix.arch }}.zip
           retention-days: 30
 
   release:
-    name: Create Release
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Attach to Release
+    # Run when a tag is pushed OR a release is published via the GitHub UI
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -75,21 +70,8 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Create GitHub Release
+      - name: Attach zips to release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           files: artifacts/*.zip
-          generate_release_notes: true
-          body: |
-            ## Installation
-
-            1. Download the zip for your Mac architecture:
-               - **Apple Silicon (M1/M2/M3/M4)** → `arm64` files
-               - **Intel Mac** → `x86_64` files
-            2. Unzip and copy to your plugin folder:
-               - **VST3** → `~/Library/Audio/Plug-Ins/VST3/`
-               - **AU** → `~/Library/Audio/Plug-Ins/Components/`
-            3. Right-click the plugin file → **Open** to bypass Gatekeeper on first run.
-            4. Rescan plugins in your DAW.
-
-            See the [README](https://github.com/${{ github.repository }}#readme) for full usage instructions.
