@@ -14,7 +14,7 @@ public:
     void prepare  (double sampleRate, int samplesPerBlock, int numChannels);
     void reset    ();
 
-    void setEngine  (OrchidVoice::Engine e);
+    void setEngine  (BegoniaVoice::Engine e);
     void setADSR    (float attack, float decay, float sustain, float release);
     void setFilter  (float cutoffHz, float resonance);
     void setGain    (float gainLinear);
@@ -33,7 +33,7 @@ private:
     int    currentBlockSize    = 512;
     int    currentNumChannels  = 2;
 
-    OrchidVoice::Engine currentEngine = OrchidVoice::Engine::Piano;
+    BegoniaVoice::Engine currentEngine = BegoniaVoice::Engine::Piano;
     float currentAttack    = 0.01f;
     float currentDecay     = 0.3f;
     float currentSustain   = 0.7f;

@@ -40,9 +40,9 @@ const juce::Colour CircleOfFifthsDisplay::kBase[3]       = {
     juce::Colour(0xFF141422),   // dim   – darkest
 };
 const juce::Colour CircleOfFifthsDisplay::kDiatonic[3]   = {
-    juce::Colour(0xFF183828),   // major – teal, clearly distinct from base
-    juce::Colour(0xFF142038),   // minor – steel blue, clearly distinct from base
-    juce::Colour(0xFF281430),   // dim   – purple, clearly distinct from base
+    juce::Colour(0xFF183828),   // major – teal
+    juce::Colour(0xFF1A3A62),   // minor – brighter steel blue
+    juce::Colour(0xFF3C1A54),   // dim   – brighter purple
 };
 const juce::Colour CircleOfFifthsDisplay::kTonic         = juce::Colour(0xFF2C2010);
 const juce::Colour CircleOfFifthsDisplay::kActive[3]     = {

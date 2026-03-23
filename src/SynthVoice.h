@@ -2,19 +2,19 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_dsp/juce_dsp.h>
 
-class OrchidSound : public juce::SynthesiserSound
+class BegoniaSound : public juce::SynthesiserSound
 {
 public:
     bool appliesToNote    (int) override { return true; }
     bool appliesToChannel (int) override { return true; }
 };
 
-class OrchidVoice : public juce::SynthesiserVoice
+class BegoniaVoice : public juce::SynthesiserVoice
 {
 public:
     enum class Engine { Piano = 0, Pad = 1, Synth = 2 };
 
-    OrchidVoice();
+    BegoniaVoice();
 
     void setEngine  (Engine e);
     void setADSR    (float attack, float decay, float sustain, float release);

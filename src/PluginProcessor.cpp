@@ -1,16 +1,16 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-OrchidProcessor::OrchidProcessor()
+BegoniaProcessor::BegoniaProcessor()
     : AudioProcessor(BusesProperties()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "OrchidState", createParameterLayout())
+      apvts(*this, nullptr, "BegoniaState", createParameterLayout())
 {
 }
 
-OrchidProcessor::~OrchidProcessor() = default;
+BegoniaProcessor::~BegoniaProcessor() = default;
 
-bool OrchidProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
+bool BegoniaProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
     // Stereo output only; no audio input needed (MIDI instrument)
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
@@ -18,7 +18,7 @@ bool OrchidProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
     return true;
 }
 
-void OrchidProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
+void BegoniaProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     cacheParameterPointers();
 
@@ -31,7 +31,7 @@ void OrchidProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     updateSynthParameters();
 }
 
-void OrchidProcessor::releaseResources()
+void BegoniaProcessor::releaseResources()
 {
     synthEngine.reset();
     currentNotes.clear();
@@ -39,7 +39,7 @@ void OrchidProcessor::releaseResources()
     currentBassNote  = -1;
 }
 
-void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
+void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                     juce::MidiBuffer& midiBuffer)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -177,7 +177,7 @@ void OrchidProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     midiBuffer.swapWith(outMidi);
 }
 
-void OrchidProcessor::cacheParameterPointers()
+void BegoniaProcessor::cacheParameterPointers()
 {
     pVoicingType     = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::VoicingType));
     pOctaveOffset    = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::OctaveOffset));
@@ -196,7 +196,7 @@ void OrchidProcessor::cacheParameterPointers()
     pGlobalKeyMon    = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::GlobalKeyMonitor));
 }
 
-void OrchidProcessor::updateSynthParameters()
+void BegoniaProcessor::updateSynthParameters()
 {
     if (!pSynthEngine) return;
 
@@ -204,7 +204,7 @@ void OrchidProcessor::updateSynthParameters()
     if (engineIdx != prevSynthEngine)
     {
         prevSynthEngine = engineIdx;
-        synthEngine.setEngine(static_cast<OrchidVoice::Engine>(engineIdx));
+        synthEngine.setEngine(static_cast<BegoniaVoice::Engine>(engineIdx));
     }
 
     float a = pAttack->get(), d = pDecay->get(), s = pSustain->get(), r = pRelease->get();
@@ -229,7 +229,7 @@ void OrchidProcessor::updateSynthParameters()
     }
 }
 
-MidiRouter::Config OrchidProcessor::buildRouterConfig() const
+MidiRouter::Config BegoniaProcessor::buildRouterConfig() const
 {
     MidiRouter::Config config;
     if (pChordChannel)   config.chordChannel    = pChordChannel->get();
@@ -240,7 +240,7 @@ MidiRouter::Config OrchidProcessor::buildRouterConfig() const
     return config;
 }
 
-VoicingEngine::VoicingParams OrchidProcessor::buildVoicingParams() const
+VoicingEngine::VoicingParams BegoniaProcessor::buildVoicingParams() const
 {
     VoicingEngine::VoicingParams params;
     if (pVoicingType)  params.voicing      = static_cast<VoicingEngine::Voicing>(pVoicingType->get());
@@ -249,26 +249,26 @@ VoicingEngine::VoicingParams OrchidProcessor::buildVoicingParams() const
     return params;
 }
 
-void OrchidProcessor::getStateInformation(juce::MemoryBlock& data)
+void BegoniaProcessor::getStateInformation(juce::MemoryBlock& data)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, data);
 }
 
-void OrchidProcessor::setStateInformation(const void* data, int size)
+void BegoniaProcessor::setStateInformation(const void* data, int size)
 {
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, size));
     if (xml && xml->hasTagName(apvts.state.getType()))
         apvts.replaceState(juce::ValueTree::fromXml(*xml));
 }
 
-juce::AudioProcessorEditor* OrchidProcessor::createEditor()
+juce::AudioProcessorEditor* BegoniaProcessor::createEditor()
 {
-    return new OrchidEditor(*this);
+    return new BegoniaEditor(*this);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new OrchidProcessor();
+    return new BegoniaProcessor();
 }

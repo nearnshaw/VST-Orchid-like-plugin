@@ -8,11 +8,11 @@
 #include "MidiRouter.h"
 #include "KeyboardMapper.h"
 
-class OrchidProcessor : public juce::AudioProcessor
+class BegoniaProcessor : public juce::AudioProcessor
 {
 public:
-    OrchidProcessor();
-    ~OrchidProcessor() override;
+    BegoniaProcessor();
+    ~BegoniaProcessor() override;
 
     // AudioProcessor interface
     void prepareToPlay     (double sampleRate, int samplesPerBlock) override;
@@ -22,7 +22,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "Orchid"; }
+    const juce::String getName() const override { return "Begonia"; }
 
     bool   acceptsMidi()  const override { return true;  }
     bool   producesMidi() const override { return true;  }
@@ -120,5 +120,5 @@ private:
     MidiRouter::Config buildRouterConfig() const;
     VoicingEngine::VoicingParams buildVoicingParams() const;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OrchidProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BegoniaProcessor)
 };

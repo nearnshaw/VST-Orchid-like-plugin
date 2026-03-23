@@ -2,9 +2,9 @@
 
 SynthEngine::SynthEngine()
 {
-    synth.addSound(new OrchidSound());
+    synth.addSound(new BegoniaSound());
     for (int i = 0; i < kNumVoices; ++i)
-        synth.addVoice(new OrchidVoice());
+        synth.addVoice(new BegoniaVoice());
 
     // Reverb default settings
     juce::Reverb::Parameters reverbParams;
@@ -43,7 +43,7 @@ void SynthEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     // Prepare each voice
     for (int i = 0; i < synth.getNumVoices(); ++i)
     {
-        if (auto* voice = dynamic_cast<OrchidVoice*>(synth.getVoice(i)))
+        if (auto* voice = dynamic_cast<BegoniaVoice*>(synth.getVoice(i)))
             voice->prepareToPlay(sampleRate, samplesPerBlock, numChannels);
     }
 }
@@ -54,7 +54,7 @@ void SynthEngine::reset()
     activeNotes.clear();
 }
 
-void SynthEngine::setEngine(OrchidVoice::Engine e)
+void SynthEngine::setEngine(BegoniaVoice::Engine e)
 {
     currentEngine = e;
     updateAllVoices();
@@ -152,15 +152,15 @@ void SynthEngine::applyEngineEffects()
 {
     switch (currentEngine)
     {
-        case OrchidVoice::Engine::Piano:
+        case BegoniaVoice::Engine::Piano:
             chorusEnabled = false;
             reverbEnabled = false;
             break;
-        case OrchidVoice::Engine::Pad:
+        case BegoniaVoice::Engine::Pad:
             chorusEnabled = true;
             reverbEnabled = true;
             break;
-        case OrchidVoice::Engine::Synth:
+        case BegoniaVoice::Engine::Synth:
             chorusEnabled = false;
             reverbEnabled = true;
             break;
@@ -171,7 +171,7 @@ void SynthEngine::updateAllVoices()
 {
     for (int i = 0; i < synth.getNumVoices(); ++i)
     {
-        if (auto* voice = dynamic_cast<OrchidVoice*>(synth.getVoice(i)))
+        if (auto* voice = dynamic_cast<BegoniaVoice*>(synth.getVoice(i)))
         {
             voice->setEngine(currentEngine);
             voice->setADSR(currentAttack, currentDecay, currentSustain, currentRelease);

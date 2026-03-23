@@ -2,12 +2,12 @@
 #include "ui/VoicingPanel.h"
 #include "ui/SynthPanel.h"
 
-const juce::Colour OrchidEditor::kBgColour       = juce::Colour(0xFF12121E);
-const juce::Colour OrchidEditor::kHeaderBgColour  = juce::Colour(0xFF0D0D1A);
-const juce::Colour OrchidEditor::kTextColour      = juce::Colour(0xFFDDDDEE);
-const juce::Colour OrchidEditor::kAccentColour    = juce::Colour(0xFFE06B3A);
+const juce::Colour BegoniaEditor::kBgColour       = juce::Colour(0xFF12121E);
+const juce::Colour BegoniaEditor::kHeaderBgColour  = juce::Colour(0xFF0D0D1A);
+const juce::Colour BegoniaEditor::kTextColour      = juce::Colour(0xFFDDDDEE);
+const juce::Colour BegoniaEditor::kAccentColour    = juce::Colour(0xFFE06B3A);
 
-OrchidEditor::OrchidEditor(OrchidProcessor& p)
+BegoniaEditor::BegoniaEditor(BegoniaProcessor& p)
     : AudioProcessorEditor(&p),
       processor(p),
       chordPanel(p.getKeyboardMapper()),
@@ -61,13 +61,13 @@ OrchidEditor::OrchidEditor(OrchidProcessor& p)
     grabFocusSafely();
 }
 
-OrchidEditor::~OrchidEditor()
+BegoniaEditor::~BegoniaEditor()
 {
     stopTimer();
     removeKeyListener(this);
 }
 
-void OrchidEditor::grabFocusSafely()
+void BegoniaEditor::grabFocusSafely()
 {
     juce::MessageManager::callAsync([this]() {
         if (isVisible())
@@ -75,7 +75,7 @@ void OrchidEditor::grabFocusSafely()
     });
 }
 
-void OrchidEditor::resized()
+void BegoniaEditor::resized()
 {
     const int w   = getWidth();
     const int h   = getHeight();
@@ -115,7 +115,7 @@ void OrchidEditor::resized()
     midiConfigPanel.setBounds(0, h - kMidiBarH, w, kMidiBarH);
 }
 
-void OrchidEditor::paint(juce::Graphics& g)
+void BegoniaEditor::paint(juce::Graphics& g)
 {
     g.fillAll(kBgColour);
 
@@ -133,12 +133,12 @@ void OrchidEditor::paint(juce::Graphics& g)
                1, getHeight() - kHeaderH - kMidiBarH);
 }
 
-bool OrchidEditor::keyPressed(const juce::KeyPress& key, juce::Component*)
+bool BegoniaEditor::keyPressed(const juce::KeyPress& key, juce::Component*)
 {
     return processor.getKeyboardMapper().handleKeyDown(key);
 }
 
-bool OrchidEditor::keyStateChanged(bool isKeyDown, juce::Component*)
+bool BegoniaEditor::keyStateChanged(bool isKeyDown, juce::Component*)
 {
     if (!isKeyDown)
     {
@@ -151,7 +151,7 @@ bool OrchidEditor::keyStateChanged(bool isKeyDown, juce::Component*)
     return false;
 }
 
-void OrchidEditor::timerCallback()
+void BegoniaEditor::timerCallback()
 {
     // Chord button visual feedback
     chordPanel.refresh();

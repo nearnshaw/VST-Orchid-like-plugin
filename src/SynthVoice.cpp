@@ -1,6 +1,6 @@
 #include "SynthVoice.h"
 
-OrchidVoice::OrchidVoice()
+BegoniaVoice::BegoniaVoice()
 {
     // Default ADSR (Piano-like)
     adsrParams.attack  = 0.01f;
@@ -12,14 +12,14 @@ OrchidVoice::OrchidVoice()
     configureOscillators();
 }
 
-void OrchidVoice::setEngine(Engine e)
+void BegoniaVoice::setEngine(Engine e)
 {
     currentEngine = e;
     configureOscillators();
     applyEngineDefaults();
 }
 
-void OrchidVoice::setADSR(float attack, float decay, float sustain, float release)
+void BegoniaVoice::setADSR(float attack, float decay, float sustain, float release)
 {
     adsrParams.attack  = attack;
     adsrParams.decay   = decay;
@@ -28,18 +28,18 @@ void OrchidVoice::setADSR(float attack, float decay, float sustain, float releas
     adsr.setParameters(adsrParams);
 }
 
-void OrchidVoice::setFilter(float cutoffHz, float resonance, double sr)
+void BegoniaVoice::setFilter(float cutoffHz, float resonance, double sr)
 {
     filter.setCutoffFrequency(cutoffHz);
     filter.setResonance(resonance);
 }
 
-void OrchidVoice::setSampleRate(double sr)
+void BegoniaVoice::setSampleRate(double sr)
 {
     sampleRate = sr;
 }
 
-void OrchidVoice::prepareToPlay(double sr, int samplesPerBlock, int numChannels)
+void BegoniaVoice::prepareToPlay(double sr, int samplesPerBlock, int numChannels)
 {
     sampleRate = sr;
     juce::dsp::ProcessSpec spec { sr, (juce::uint32)samplesPerBlock, (juce::uint32)numChannels };
@@ -54,12 +54,12 @@ void OrchidVoice::prepareToPlay(double sr, int samplesPerBlock, int numChannels)
     configureOscillators();
 }
 
-bool OrchidVoice::canPlaySound(juce::SynthesiserSound* sound)
+bool BegoniaVoice::canPlaySound(juce::SynthesiserSound* sound)
 {
-    return dynamic_cast<OrchidSound*>(sound) != nullptr;
+    return dynamic_cast<BegoniaSound*>(sound) != nullptr;
 }
 
-void OrchidVoice::configureOscillators()
+void BegoniaVoice::configureOscillators()
 {
     switch (currentEngine)
     {
@@ -93,7 +93,7 @@ void OrchidVoice::configureOscillators()
     }
 }
 
-void OrchidVoice::applyEngineDefaults()
+void BegoniaVoice::applyEngineDefaults()
 {
     // ADSR defaults per engine — only applied if user hasn't customised
     // (these are suggestions; actual ADSR is set by setADSR calls from processor)
@@ -122,7 +122,7 @@ void OrchidVoice::applyEngineDefaults()
     }
 }
 
-void OrchidVoice::startNote(int midiNoteNumber, float velocity,
+void BegoniaVoice::startNote(int midiNoteNumber, float velocity,
                               juce::SynthesiserSound*, int)
 {
     noteFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
@@ -151,7 +151,7 @@ void OrchidVoice::startNote(int midiNoteNumber, float velocity,
     gainSmoother.setTargetValue(velocity * 0.6f);
 }
 
-void OrchidVoice::stopNote(float, bool allowTailOff)
+void BegoniaVoice::stopNote(float, bool allowTailOff)
 {
     if (allowTailOff)
     {
@@ -165,7 +165,7 @@ void OrchidVoice::stopNote(float, bool allowTailOff)
     }
 }
 
-void OrchidVoice::renderNextBlock(juce::AudioBuffer<float>& buffer,
+void BegoniaVoice::renderNextBlock(juce::AudioBuffer<float>& buffer,
                                    int startSample, int numSamples)
 {
     if (!isPlaying && !adsr.isActive())

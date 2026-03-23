@@ -41,7 +41,7 @@ private:
 
     static constexpr float kCornerRadius = 6.0f;
 
-    // Orchid-inspired colour palette
+    // Colour palette
     static const juce::Colour kBgColour;
     static const juce::Colour kButtonColour;
     static const juce::Colour kActiveChordColour;

@@ -8,13 +8,13 @@
 #include "ui/KeyboardDisplay.h"
 #include "ui/CircleOfFifthsDisplay.h"
 
-class OrchidEditor : public juce::AudioProcessorEditor,
+class BegoniaEditor : public juce::AudioProcessorEditor,
                      public juce::KeyListener,
                      public juce::Timer
 {
 public:
-    explicit OrchidEditor(OrchidProcessor&);
-    ~OrchidEditor() override;
+    explicit BegoniaEditor(BegoniaProcessor&);
+    ~BegoniaEditor() override;
 
     void paint     (juce::Graphics&) override;
     void resized   () override;
@@ -28,7 +28,7 @@ public:
     void timerCallback() override;
 
 private:
-    OrchidProcessor& processor;
+    BegoniaProcessor& processor;
 
     // Panels
     ChordButtonPanel       chordPanel;
@@ -39,7 +39,7 @@ private:
     CircleOfFifthsDisplay  circleDisplay;
 
     // Header controls
-    juce::Label        titleLabel  { {}, "ORCHID" };
+    juce::Label        titleLabel  { {}, "BEGONIA" };
     juce::ToggleButton globalKeyBtn { "Global Key" };
 
     using ButtonAtt = juce::AudioProcessorValueTreeState::ButtonAttachment;
@@ -62,5 +62,5 @@ private:
 
     void grabFocusSafely();
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OrchidEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BegoniaEditor)
 };

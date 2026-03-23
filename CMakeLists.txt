@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(Orchid VERSION 1.0.0)
+project(Begonia VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,12 +21,12 @@ CPMAddPackage(
     GIT_TAG v3.7.1
 )
 
-juce_add_plugin(Orchid
-    COMPANY_NAME "OrchidPlugin"
+juce_add_plugin(Begonia
+    COMPANY_NAME "BegoniaPlugin"
     PLUGIN_MANUFACTURER_CODE Orcd
     PLUGIN_CODE Orch
     FORMATS VST3 AU Standalone
-    PRODUCT_NAME "Orchid"
+    PRODUCT_NAME "Begonia"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT TRUE
@@ -37,7 +37,7 @@ juce_add_plugin(Orchid
     COPY_PLUGIN_AFTER_BUILD FALSE
 )
 
-target_sources(Orchid PRIVATE
+target_sources(Begonia PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/ChordEngine.cpp
@@ -55,7 +55,7 @@ target_sources(Orchid PRIVATE
     src/ui/CircleOfFifthsDisplay.cpp
 )
 
-target_compile_definitions(Orchid
+target_compile_definitions(Begonia
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
@@ -64,7 +64,7 @@ target_compile_definitions(Orchid
         JUCE_REPORT_APP_USAGE=0
 )
 
-target_link_libraries(Orchid
+target_link_libraries(Begonia
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors
@@ -78,7 +78,7 @@ target_link_libraries(Orchid
 
 # macOS framework for global key monitoring
 if(APPLE)
-    target_link_libraries(Orchid PRIVATE "-framework AppKit")
+    target_link_libraries(Begonia PRIVATE "-framework AppKit")
 endif()
 
 # Tests
