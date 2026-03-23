@@ -46,10 +46,15 @@ private:
     juce::Label  gainLabel  { {}, "GAIN" };
     juce::Slider gainSlider;
 
-    using SliderAtt = juce::AudioProcessorValueTreeState::SliderAttachment;
-    using ComboAtt  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    // Audio on/off toggle in header
+    juce::ToggleButton audioToggle { "Audio" };
+
+    using SliderAtt  = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using ComboAtt   = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    using ButtonAtt  = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     std::unique_ptr<ComboAtt>  engineAttachment;
+    std::unique_ptr<ButtonAtt> audioAtt;
     std::unique_ptr<SliderAtt> attackAtt, decayAtt, sustainAtt, releaseAtt;
     std::unique_ptr<SliderAtt> cutoffAtt, resonanceAtt, gainAtt;
 

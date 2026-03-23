@@ -29,11 +29,20 @@ SynthPanel::SynthPanel(juce::AudioProcessorValueTreeState& apvts_) : apvts(apvts
     addAndMakeVisible(collapseBtn);
 
     // Engine combo
-    engineCombo.addItem("Piano", 1);
-    engineCombo.addItem("Pad",   2);
-    engineCombo.addItem("Synth", 3);
+    engineCombo.addItem("Piano",   1);
+    engineCombo.addItem("Pad",     2);
+    engineCombo.addItem("Synth",   3);
+    engineCombo.addItem("Strings", 4);
+    engineCombo.addItem("Pluck",   5);
+    engineCombo.addItem("Organ",   6);
     engineCombo.setSelectedId(1);
     engineAttachment = std::make_unique<ComboAtt>(apvts, ParamIDs::SynthEngineType, engineCombo);
+
+    // Audio on/off toggle
+    audioToggle.setColour(juce::ToggleButton::textColourId, kTextColour.withAlpha(0.8f));
+    audioToggle.setColour(juce::ToggleButton::tickColourId, kAccentColour);
+    audioAtt = std::make_unique<ButtonAtt>(apvts, ParamIDs::SynthEnabled, audioToggle);
+    addAndMakeVisible(audioToggle);
 
     // Sliders
     setupSlider(attackSlider,    juce::Slider::RotaryVerticalDrag);
@@ -86,8 +95,10 @@ void SynthPanel::resized()
     const int pad = 6;
 
     // Header
-    const int btnW = 20;
+    const int btnW     = 20;
+    const int toggleW  = 62;
     collapseBtn.setBounds(w - btnW - 4, (kHeaderH - 18) / 2, btnW, 18);
+    audioToggle.setBounds(w - btnW - 8 - toggleW, (kHeaderH - 18) / 2, toggleW, 18);
 
     if (collapsed) return;
 

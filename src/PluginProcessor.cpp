@@ -169,9 +169,12 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         displayChordType.store(0,  std::memory_order_release);
     }
 
-    // Render synth audio
-    juce::MidiBuffer emptyMidi;
-    synthEngine.renderNextBlock(buffer, emptyMidi);
+    // Render synth audio (only if synth is enabled)
+    if (!pSynthEnabled || pSynthEnabled->get())
+    {
+        juce::MidiBuffer emptyMidi;
+        synthEngine.renderNextBlock(buffer, emptyMidi);
+    }
 
     // Replace incoming MIDI with our output
     midiBuffer.swapWith(outMidi);
@@ -194,6 +197,7 @@ void BegoniaProcessor::cacheParameterPointers()
     pMidiOutEnabled  = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::MidiOutEnabled));
     pOutputGain      = dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter(ParamIDs::OutputGain));
     pGlobalKeyMon    = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::GlobalKeyMonitor));
+    pSynthEnabled    = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::SynthEnabled));
 }
 
 void BegoniaProcessor::updateSynthParameters()

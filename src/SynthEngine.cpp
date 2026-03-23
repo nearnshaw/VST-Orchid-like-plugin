@@ -164,6 +164,18 @@ void SynthEngine::applyEngineEffects()
             chorusEnabled = false;
             reverbEnabled = true;
             break;
+        case BegoniaVoice::Engine::Strings:
+            chorusEnabled = true;
+            reverbEnabled = true;
+            break;
+        case BegoniaVoice::Engine::Pluck:
+            chorusEnabled = false;
+            reverbEnabled = false;
+            break;
+        case BegoniaVoice::Engine::Organ:
+            chorusEnabled = false;
+            reverbEnabled = false;
+            break;
     }
 }
 

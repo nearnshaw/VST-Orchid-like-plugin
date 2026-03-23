@@ -19,6 +19,7 @@ namespace ParamIDs
     inline constexpr auto OutputGain       = "outputGain";
     inline constexpr auto GlobalKeyMonitor = "globalKeyMonitor";
     inline constexpr auto SelectedKey      = "selectedKey";
+    inline constexpr auto SynthEnabled     = "synthEnabled";
 }
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
@@ -38,9 +39,9 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     params.push_back(std::make_unique<AudioParameterBool>(
         ParamIDs::BassEnabled, "Bass Enabled", true));
 
-    // Synth engine: 0=Piano, 1=Pad, 2=Synth
+    // Synth engine: 0=Piano, 1=Pad, 2=Synth, 3=Strings, 4=Pluck, 5=Organ
     params.push_back(std::make_unique<AudioParameterInt>(
-        ParamIDs::SynthEngineType, "Synth Engine", 0, 2, 0));
+        ParamIDs::SynthEngineType, "Synth Engine", 0, 5, 0));
 
     // ADSR
     params.push_back(std::make_unique<AudioParameterFloat>(
@@ -86,6 +87,10 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // Global key monitor (macOS)
     params.push_back(std::make_unique<AudioParameterBool>(
         ParamIDs::GlobalKeyMonitor, "Global Key Monitor", false));
+
+    // Synth audio enabled (false = MIDI out only, no audio rendering)
+    params.push_back(std::make_unique<AudioParameterBool>(
+        ParamIDs::SynthEnabled, "Synth Audio", true));
 
     // Selected key for circle of fifths diatonic highlighting (0=C … 11=B)
     params.push_back(std::make_unique<AudioParameterInt>(

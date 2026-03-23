@@ -80,15 +80,41 @@ void BegoniaVoice::configureOscillators()
             break;
 
         case Engine::Synth:
-            // Bandlimited sawtooth approximation via juce built-in
             osc1.initialise([](float x) {
-                // Simplified sawtooth: linear ramp from -1 to 1
                 return (x / juce::MathConstants<float>::pi);
             }, 1024);
             osc2.initialise([](float x) {
                 return (x / juce::MathConstants<float>::pi) * 0.5f;
             }, 1024);
             oscSub.initialise([](float x) { return std::sin(x) * 0.4f; }, 512);
+            break;
+
+        case Engine::Strings:
+            // Warm strings: sine + odd harmonics, two detuned layers
+            osc1.initialise([](float x) {
+                return std::sin(x) + 0.5f * std::sin(3.0f * x) + 0.2f * std::sin(5.0f * x);
+            }, 512);
+            osc2.initialise([](float x) {
+                return std::sin(x) + 0.5f * std::sin(3.0f * x) + 0.2f * std::sin(5.0f * x);
+            }, 512);
+            oscSub.initialise([](float x) { return std::sin(x) * 0.25f; }, 512);
+            break;
+
+        case Engine::Pluck:
+            // Plucked string: bright harmonic series, decays instantly
+            osc1.initialise([](float x) {
+                return std::sin(x) + 0.5f * std::sin(2.0f * x) + 0.3f * std::sin(3.0f * x)
+                     + 0.15f * std::sin(4.0f * x) + 0.05f * std::sin(5.0f * x);
+            }, 512);
+            osc2.initialise([](float x) { return 0.0f; }, 512);
+            oscSub.initialise([](float x) { return 0.0f; }, 512);
+            break;
+
+        case Engine::Organ:
+            // Hammond-style drawbars: 8' fundamental + 4' octave + 16' sub
+            osc1.initialise([](float x) { return std::sin(x); }, 512);
+            osc2.initialise([](float x) { return std::sin(x); }, 512); // played at 2x freq
+            oscSub.initialise([](float x) { return std::sin(x); }, 512); // played at 0.5x freq
             break;
     }
 }
@@ -119,6 +145,27 @@ void BegoniaVoice::applyEngineDefaults()
             filter.setCutoffFrequency(4000.0f);
             filter.setResonance(1.5f);
             break;
+
+        case Engine::Strings:
+            setADSR(0.3f, 0.2f, 0.9f, 1.0f);
+            filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
+            filter.setCutoffFrequency(3000.0f);
+            filter.setResonance(0.4f);
+            break;
+
+        case Engine::Pluck:
+            setADSR(0.001f, 0.35f, 0.0f, 0.1f);
+            filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
+            filter.setCutoffFrequency(8000.0f);
+            filter.setResonance(0.5f);
+            break;
+
+        case Engine::Organ:
+            setADSR(0.005f, 0.0f, 1.0f, 0.02f);
+            filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
+            filter.setCutoffFrequency(6000.0f);
+            filter.setResonance(0.3f);
+            break;
     }
 }
 
@@ -131,10 +178,11 @@ void BegoniaVoice::startNote(int midiNoteNumber, float velocity,
 
     osc1.setFrequency(noteFrequency);
 
-    // Slight detune for Pad (±5 cents) and Synth (±8 cents)
     float detuneRatio = 1.0f;
-    if (currentEngine == Engine::Pad)   detuneRatio = 1.003f;  // ~5 cents
-    if (currentEngine == Engine::Synth) detuneRatio = 1.005f;  // ~8 cents
+    if (currentEngine == Engine::Pad)     detuneRatio = 1.003f;  // ~5 cents
+    if (currentEngine == Engine::Synth)   detuneRatio = 1.005f;  // ~8 cents
+    if (currentEngine == Engine::Strings) detuneRatio = 1.002f;  // ~3 cents
+    if (currentEngine == Engine::Organ)   detuneRatio = 2.0f;    // 4' drawbar (octave up)
     osc2.setFrequency(noteFrequency * detuneRatio);
 
     // Sub oscillator one octave below
@@ -182,13 +230,21 @@ void BegoniaVoice::renderNextBlock(juce::AudioBuffer<float>& buffer,
     {
         float sample = osc1.processSample(0.0f);
 
-        if (currentEngine == Engine::Pad || currentEngine == Engine::Synth)
+        if (currentEngine == Engine::Pad || currentEngine == Engine::Synth
+                                         || currentEngine == Engine::Strings)
             sample = (sample + osc2.processSample(0.0f)) * 0.5f;
+        else if (currentEngine == Engine::Organ)
+            sample = (sample + osc2.processSample(0.0f) * 0.8f) / 1.8f;
+        // Pluck/Piano: just osc1
 
         if (currentEngine == Engine::Pad)
             sample += oscSub.processSample(0.0f) * 0.2f;
         if (currentEngine == Engine::Synth)
             sample += oscSub.processSample(0.0f) * 0.15f;
+        if (currentEngine == Engine::Strings)
+            sample += oscSub.processSample(0.0f) * 0.1f;
+        if (currentEngine == Engine::Organ)
+            sample += oscSub.processSample(0.0f) * 0.5f;
 
         dest[i] = sample * gainSmoother.getNextValue();
     }

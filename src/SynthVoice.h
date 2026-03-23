@@ -12,7 +12,7 @@ public:
 class BegoniaVoice : public juce::SynthesiserVoice
 {
 public:
-    enum class Engine { Piano = 0, Pad = 1, Synth = 2 };
+    enum class Engine { Piano = 0, Pad = 1, Synth = 2, Strings = 3, Pluck = 4, Organ = 5 };
 
     BegoniaVoice();
 
