@@ -77,8 +77,22 @@ CircleOfFifthsDisplay::CircleOfFifthsDisplay(juce::AudioProcessorValueTreeState&
 
     keyAtt = std::make_unique<ComboAtt>(apvts_, ParamIDs::SelectedKey, keyCombo);
 
-    // Repaint the circle whenever the key selection changes
-    keyCombo.onChange = [this]() { repaint(); };
+    // After sendInitialUpdate() the combo has the right item selected.
+    // Read it now so m_key is valid before the first paint().
+    // Item IDs were assigned as (pitchClass + 1), so pitchClass = id - 1.
+    {
+        const int id = keyCombo.getSelectedId();
+        m_key = juce::jlimit(0, 11, id > 0 ? id - 1 : 0);
+    }
+
+    // Keep m_key in sync whenever the combo changes (user interaction or
+    // preset load both route through here via the attachment).
+    keyCombo.onChange = [this]()
+    {
+        const int id = keyCombo.getSelectedId();
+        m_key = juce::jlimit(0, 11, id > 0 ? id - 1 : 0);
+        repaint();
+    };
 
     keyLabel.setFont(juce::FontOptions(10.0f).withStyle("Bold"));
     keyLabel.setColour(juce::Label::textColourId, kText[0].withAlpha(0.7f));
@@ -176,10 +190,7 @@ void CircleOfFifthsDisplay::drawSegmentLabel(juce::Graphics& g, const juce::Stri
 // -----------------------------------------------------------------------
 int CircleOfFifthsDisplay::selectedKey() const
 {
-    // The combo always displays the correct note name, so the item index IS the key.
-    // Called once per paint(); result passed everywhere so no multi-call inconsistency.
-    const int idx = keyCombo.getSelectedItemIndex();
-    return juce::jlimit(0, 11, idx < 0 ? 0 : idx);
+    return m_key;   // updated in onChange; never calls into APVTS or combo internals
 }
 
 // key is passed in so this is never called with a stale/different value mid-paint
@@ -253,8 +264,11 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
     const float pi2      = juce::MathConstants<float>::twoPi;
     const float halfPi   = juce::MathConstants<float>::halfPi;
     const float segAngle = pi2 / 12.0f;
-    // Rotate so C sits exactly at 12 o'clock (shift back half a segment width)
-    const float startAngle = -halfPi - segAngle * 0.5f;
+    // startAngle drives label midpoints via arcMidpoint() (standard cos/sin, 0 = right).
+    // JUCE's addCentredArc uses the same convention, but empirically the arcs are
+    // offset by +π/2 relative to arcMidpoint, so fills use arcStartAngle instead.
+    const float startAngle    = -halfPi - segAngle * 0.5f;  // for arcMidpoint / labels
+    const float arcStartAngle = startAngle + halfPi;         // for makeSegment / fills
     // Small gap between segments for readability
     const float gap      = 0.012f;
 
@@ -289,26 +303,27 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
     // ── Pass 1: all fills and borders ───────────────────────────────────
     for (int i = 0; i < 12; ++i)
     {
-        const float a1 = startAngle + i * segAngle + gap;
-        const float a2 = startAngle + (i + 1) * segAngle - gap;
+        // fa1/fa2 for arc drawing (JUCE convention, offset by +halfPi vs label angles)
+        const float fa1 = arcStartAngle + i * segAngle + gap;
+        const float fa2 = arcStartAngle + (i + 1) * segAngle - gap;
 
         // Major (outer) ring
         g.setColour(segmentColour(i, 0, key));
-        g.fillPath(makeSegment(a1, a2, rMajI, rMajO));
+        g.fillPath(makeSegment(fa1, fa2, rMajI, rMajO));
         g.setColour(kSep);
-        g.strokePath(makeSegment(a1, a2, rMajI, rMajO), juce::PathStrokeType(0.8f));
+        g.strokePath(makeSegment(fa1, fa2, rMajI, rMajO), juce::PathStrokeType(0.8f));
 
         // Minor (middle) ring
         g.setColour(segmentColour(i, 1, key));
-        g.fillPath(makeSegment(a1, a2, rMinI, rMinO));
+        g.fillPath(makeSegment(fa1, fa2, rMinI, rMinO));
         g.setColour(kSep);
-        g.strokePath(makeSegment(a1, a2, rMinI, rMinO), juce::PathStrokeType(0.6f));
+        g.strokePath(makeSegment(fa1, fa2, rMinI, rMinO), juce::PathStrokeType(0.6f));
 
         // Dim (inner) ring
         g.setColour(segmentColour(i, 2, key));
-        g.fillPath(makeSegment(a1, a2, rDimI, rDimO));
+        g.fillPath(makeSegment(fa1, fa2, rDimI, rDimO));
         g.setColour(kSep);
-        g.strokePath(makeSegment(a1, a2, rDimI, rDimO), juce::PathStrokeType(0.5f));
+        g.strokePath(makeSegment(fa1, fa2, rDimI, rDimO), juce::PathStrokeType(0.5f));
     }
 
     // Centre hole drawn before labels so it doesn't overdraw the innermost text
@@ -364,4 +379,5 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
     g.setColour(kSep.withAlpha(0.5f));
     for (float r : { rMajO, rMajI, rMinI, rDimI })
         g.drawEllipse(centre.x - r, centre.y - r, r * 2.0f, r * 2.0f, 0.6f);
+
 }

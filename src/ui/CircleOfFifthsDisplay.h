@@ -48,6 +48,11 @@ private:
     using ComboAtt = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     std::unique_ptr<ComboAtt> keyAtt;
 
+    // Cached key pitch class (0=C … 11=B) — updated from onChange so paint()
+    // never has to call into combo/APVTS internals.  Initialized after the
+    // attachment fires its sendInitialUpdate(), so it's always valid.
+    int m_key = 0;
+
     // ---------------------------------------------------------------
     // Geometry (set in resized)
     // ---------------------------------------------------------------
