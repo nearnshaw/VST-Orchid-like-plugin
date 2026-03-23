@@ -1,4 +1,6 @@
 #include "PluginEditor.h"
+#include "ui/VoicingPanel.h"
+#include "ui/SynthPanel.h"
 
 const juce::Colour OrchidEditor::kBgColour       = juce::Colour(0xFF12121E);
 const juce::Colour OrchidEditor::kHeaderBgColour  = juce::Colour(0xFF0D0D1A);
@@ -39,6 +41,10 @@ OrchidEditor::OrchidEditor(OrchidProcessor& p)
     addAndMakeVisible(midiConfigPanel);
     addAndMakeVisible(keyboardDisplay);
     addAndMakeVisible(circleDisplay);
+
+    // Re-layout when a panel collapses/expands
+    voicingPanel.onToggle = [this]() { resized(); };
+    synthPanel.onToggle   = [this]() { resized(); };
 
     // Grab focus when clicked anywhere
     for (auto* comp : { (juce::Component*)&chordPanel,
@@ -96,8 +102,10 @@ void OrchidEditor::resized()
     const int vW    = midW * 2 / 5;
     const int sW    = midW - vW - pad;
 
-    voicingPanel.setBounds(midX,        contentY + pad, vW, contentH - pad * 2);
-    synthPanel.setBounds  (midX + vW + pad, contentY + pad, sW, contentH - pad * 2);
+    const int vH = voicingPanel.isCollapsed() ? VoicingPanel::kMinHeight : contentH - pad * 2;
+    const int sH = synthPanel.isCollapsed()   ? SynthPanel::kMinHeight   : contentH - pad * 2;
+    voicingPanel.setBounds(midX,            contentY + pad, vW, vH);
+    synthPanel.setBounds  (midX + vW + pad, contentY + pad, sW, sH);
 
     // Keyboard display (spans full width except circle panel)
     const int kbY = h - kMidiBarH - kKeyboardH;
@@ -151,6 +159,7 @@ void OrchidEditor::timerCallback()
     // Keyboard display
     keyboardDisplay.setRootNote(processor.getLastRootNote());
     keyboardDisplay.setChordName(processor.getLastChordName());
+    keyboardDisplay.setChordNotes(processor.getChordDisplayState().notesBitmask);
 
     // Circle of fifths display
     auto ds = processor.getChordDisplayState();

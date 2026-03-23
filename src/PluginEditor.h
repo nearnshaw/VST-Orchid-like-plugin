@@ -55,7 +55,7 @@ private:
     static constexpr int kWidth        = 1100;
     static constexpr int kHeight       = 520;
     static constexpr int kHeaderH      = 36;
-    static constexpr int kChordPanelW  = 130;
+    static constexpr int kChordPanelW  = 170;
     static constexpr int kCirclePanelW = 370;
     static constexpr int kMidiBarH     = 52;
     static constexpr int kKeyboardH    = 70;

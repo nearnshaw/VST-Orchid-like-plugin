@@ -7,7 +7,23 @@ const juce::Colour VoicingPanel::kTextColour = juce::Colour(0xFFDDDDEE);
 VoicingPanel::VoicingPanel(juce::AudioProcessorValueTreeState& apvts_)
     : apvts(apvts_)
 {
-    // Voicing combo (0-indexed items map to VoicingEngine::Voicing enum)
+    // Collapse button
+    collapseBtn.setButtonText("v");
+    collapseBtn.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    collapseBtn.setColour(juce::TextButton::textColourOffId, kTextColour.withAlpha(0.7f));
+    collapseBtn.onClick = [this]()
+    {
+        collapsed = !collapsed;
+        collapseBtn.setButtonText(collapsed ? ">" : "v");
+        for (juce::Component* c : { (juce::Component*)&voicingLabel, (juce::Component*)&voicingCombo,
+                                    (juce::Component*)&octaveLabel,  (juce::Component*)&octaveCombo,
+                                    (juce::Component*)&bassLabel,    (juce::Component*)&bassToggle })
+            c->setVisible(!collapsed);
+        if (onToggle) onToggle();
+    };
+    addAndMakeVisible(collapseBtn);
+
+    // Voicing combo
     voicingCombo.addItem("Close",       1);
     voicingCombo.addItem("Inversion 1", 2);
     voicingCombo.addItem("Inversion 2", 3);
@@ -48,7 +64,14 @@ void VoicingPanel::resized()
 {
     const int w   = getWidth();
     const int pad = 8;
-    int y = pad;
+
+    // Header with title and collapse button
+    const int btnW = 20;
+    collapseBtn.setBounds(w - btnW - 4, (kHeaderH - 18) / 2, btnW, 18);
+
+    if (collapsed) return;
+
+    int y = kHeaderH + pad;
 
     voicingLabel.setBounds(pad, y, w - pad * 2, 14);
     y += 16;
@@ -68,6 +91,14 @@ void VoicingPanel::resized()
 void VoicingPanel::paint(juce::Graphics& g)
 {
     g.fillAll(kBgColour);
+
+    // Header bar
+    g.setColour(kBgColour.brighter(0.12f));
+    g.fillRect(0, 0, getWidth(), kHeaderH);
+
+    g.setColour(kTextColour.withAlpha(0.85f));
+    g.setFont(juce::FontOptions(11.0f).withStyle("Bold"));
+    g.drawText("VOICING", 8, 0, getWidth() - 36, kHeaderH, juce::Justification::centredLeft);
 
     g.setColour(kTextColour.withAlpha(0.15f));
     g.drawRect(getLocalBounds().toFloat(), 1.0f);

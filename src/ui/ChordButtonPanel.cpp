@@ -30,19 +30,20 @@ void ChordButtonPanel::layoutButtons()
 {
     const int w    = getWidth();
     const int h    = getHeight();
-    const int pad  = 6;
-    const int btnH = (h - pad * 5) / 4;
-    const int btnW = w - pad * 2;
+    const int pad  = 5;
+    const int gap  = 4;   // gap between columns
+    const int colW = (w - pad * 2 - gap) / 2;
+    const int btnH = (h - pad * 2 - gap * 3) / 4;
+
+    const int col1X = pad;
+    const int col2X = pad + colW + gap;
 
     for (int i = 0; i < 4; ++i)
-        buttons[i].bounds = { pad, pad + i * (btnH + pad), btnW, btnH };
-
-    // Extensions below with a small separator
-    const int extStartY = pad + 4 * (btnH + pad) + pad;
-    const int extBtnH   = (h - extStartY - pad * 5) / 4;
-
-    for (int i = 0; i < 4; ++i)
-        buttons[4 + i].bounds = { pad, extStartY + i * (extBtnH + pad), btnW, extBtnH };
+    {
+        int y = pad + i * (btnH + gap);
+        buttons[i].bounds     = { col1X, y, colW, btnH };
+        buttons[4 + i].bounds = { col2X, y, colW, btnH };
+    }
 }
 
 void ChordButtonPanel::refresh()

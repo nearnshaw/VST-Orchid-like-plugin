@@ -53,9 +53,9 @@ const juce::Colour CircleOfFifthsDisplay::kActive[3]     = {
 const juce::Colour CircleOfFifthsDisplay::kNoteHint      = juce::Colour(0xFF3A2C18);
 const juce::Colour CircleOfFifthsDisplay::kSep           = juce::Colour(0xFF26263E);
 const juce::Colour CircleOfFifthsDisplay::kText[3]       = {
-    juce::Colour(0xFFCCCCE0),   // major text – light, readable on dark bg
-    juce::Colour(0xFFBBBBD8),   // minor text
-    juce::Colour(0xFFAAAACC),   // dim text
+    juce::Colour(0xFFD8D8EE),   // major text – clearly readable on dark bg
+    juce::Colour(0xFFC8C8E4),   // minor text
+    juce::Colour(0xFFB8B8D8),   // dim text
 };
 const juce::Colour CircleOfFifthsDisplay::kTextActive    = juce::Colours::white;
 const juce::Colour CircleOfFifthsDisplay::kTextDiatonic  = juce::Colour(0xFF88DDAA);
@@ -175,8 +175,9 @@ void CircleOfFifthsDisplay::drawSegmentLabel(juce::Graphics& g, const juce::Stri
 // -----------------------------------------------------------------------
 int CircleOfFifthsDisplay::selectedKey() const
 {
-    // keyCombo item ID is (pitchClass + 1)
-    return juce::jlimit(0, 11, keyCombo.getSelectedId() - 1);
+    // getSelectedItemIndex() returns the 0-based position (C=0, C#=1, ..., B=11)
+    // regardless of what item IDs the attachment uses internally
+    return juce::jlimit(0, 11, keyCombo.getSelectedItemIndex());
 }
 
 bool CircleOfFifthsDisplay::isDiatonic(int pc, int ring) const

@@ -10,8 +10,17 @@ public:
     void paint   (juce::Graphics&) override;
     void resized () override;
 
+    bool isCollapsed() const { return collapsed; }
+    std::function<void()> onToggle;
+
+    static constexpr int kHeaderH   = 28;
+    static constexpr int kMinHeight = kHeaderH;
+
 private:
     juce::AudioProcessorValueTreeState& apvts;
+
+    bool              collapsed   = false;
+    juce::TextButton  collapseBtn { "v" };
 
     // Engine selector
     juce::Label    engineLabel { {}, "ENGINE" };

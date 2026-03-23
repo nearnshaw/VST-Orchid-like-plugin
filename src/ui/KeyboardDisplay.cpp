@@ -1,10 +1,12 @@
 #include "KeyboardDisplay.h"
 
-const juce::Colour KeyboardDisplay::kBgColour   = juce::Colour(0xFF12121E);
-const juce::Colour KeyboardDisplay::kWhiteKey   = juce::Colour(0xFFE8E8F0);
-const juce::Colour KeyboardDisplay::kBlackKey   = juce::Colour(0xFF1E1E2E);
-const juce::Colour KeyboardDisplay::kRootColour = juce::Colour(0xFFE06B3A);
-const juce::Colour KeyboardDisplay::kTextColour = juce::Colour(0xFFDDDDEE);
+const juce::Colour KeyboardDisplay::kBgColour        = juce::Colour(0xFF12121E);
+const juce::Colour KeyboardDisplay::kWhiteKey        = juce::Colour(0xFFE8E8F0);
+const juce::Colour KeyboardDisplay::kBlackKey        = juce::Colour(0xFF1E1E2E);
+const juce::Colour KeyboardDisplay::kRootColour      = juce::Colour(0xFFE06B3A);
+const juce::Colour KeyboardDisplay::kChordNoteWhite  = juce::Colour(0xFFBBA080);  // warm amber tint
+const juce::Colour KeyboardDisplay::kChordNoteBlack  = juce::Colour(0xFF6B4428);  // darker amber
+const juce::Colour KeyboardDisplay::kTextColour      = juce::Colour(0xFFDDDDEE);
 
 KeyboardDisplay::KeyboardDisplay()
 {
@@ -24,6 +26,15 @@ void KeyboardDisplay::setChordName(const juce::String& name)
     if (chordName != name)
     {
         chordName = name;
+        repaint();
+    }
+}
+
+void KeyboardDisplay::setChordNotes(uint16_t notesBitmask)
+{
+    if (chordNotesMask != notesBitmask)
+    {
+        chordNotesMask = notesBitmask;
         repaint();
     }
 }
@@ -95,8 +106,13 @@ void KeyboardDisplay::paint(juce::Graphics& g)
     for (const auto& key : keyRects)
         if (!key.isBlack)
         {
-            bool isRoot = (rootNote >= 0 && (key.midiNote % 12) == (rootNote % 12));
-            g.setColour(isRoot ? kRootColour : kWhiteKey);
+            const int pc = key.midiNote % 12;
+            bool isRoot  = (rootNote >= 0 && pc == (rootNote % 12));
+            bool isChord = !isRoot && ((chordNotesMask >> pc) & 1);
+            juce::Colour col = isRoot  ? kRootColour
+                             : isChord ? kChordNoteWhite
+                             :           kWhiteKey;
+            g.setColour(col);
             g.fillRect(key.bounds);
             g.setColour(kBgColour.withAlpha(0.5f));
             g.drawRect(key.bounds, 1.0f);
@@ -105,8 +121,13 @@ void KeyboardDisplay::paint(juce::Graphics& g)
     for (const auto& key : keyRects)
         if (key.isBlack)
         {
-            bool isRoot = (rootNote >= 0 && (key.midiNote % 12) == (rootNote % 12));
-            g.setColour(isRoot ? kRootColour.darker(0.3f) : kBlackKey);
+            const int pc = key.midiNote % 12;
+            bool isRoot  = (rootNote >= 0 && pc == (rootNote % 12));
+            bool isChord = !isRoot && ((chordNotesMask >> pc) & 1);
+            juce::Colour col = isRoot  ? kRootColour.darker(0.3f)
+                             : isChord ? kChordNoteBlack
+                             :           kBlackKey;
+            g.setColour(col);
             g.fillRect(key.bounds);
         }
 
