@@ -10,33 +10,51 @@ on:
     types: [ published ]
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # suppress Node.js 20 deprecation warnings
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     name: Build (macOS arm64)
-    runs-on: macos-14   # Apple Silicon — stable free-tier runner
+    runs-on: macos-14
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configure
-        # cmake and ninja are pre-installed on GitHub-hosted macOS runners
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: Build VST3
+        run: cmake --build build --target Begonia_VST3 -j4
+
+      - name: Build AU
+        run: cmake --build build --target Begonia_AU -j4
+
+      - name: Build Standalone
+        run: cmake --build build --target Begonia_Standalone -j4
+
+      - name: List artifacts
         run: |
-          cmake --build build \
-            --target Begonia_VST3 Begonia_AU Begonia_Standalone \
-            -j4
+          echo "=== Contents of build/Begonia_artefacts ==="
+          find build/Begonia_artefacts -not -path '*/JuceLibraryCode/*' | sort
 
       - name: Package
         run: |
-          cd build/Begonia_artefacts
-          zip -r "$GITHUB_WORKSPACE/Begonia-VST3-macOS.zip"        VST3/Begonia.vst3
-          zip -r "$GITHUB_WORKSPACE/Begonia-AU-macOS.zip"          AU/Begonia.component
-          zip -r "$GITHUB_WORKSPACE/Begonia-Standalone-macOS.zip"  Standalone/Begonia.app
+          set -e
+          pack() {
+            local name="$1" out="$2"
+            local path
+            path=$(find build/Begonia_artefacts -name "$name" | head -1)
+            if [ -z "$path" ]; then
+              echo "ERROR: $name not found after build"
+              exit 1
+            fi
+            echo "Packing $path -> $out"
+            (cd "$(dirname "$path")" && zip -r "$GITHUB_WORKSPACE/$out" "$name")
+          }
+          pack "Begonia.vst3"      "Begonia-VST3-macOS.zip"
+          pack "Begonia.component" "Begonia-AU-macOS.zip"
+          pack "Begonia.app"       "Begonia-Standalone-macOS.zip"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
