@@ -178,8 +178,8 @@ int BegoniaProcessor::computeArpStepSamples() const
 int BegoniaProcessor::strumIntervalSamples() const
 {
     const int speed = pStrumSpeed ? pStrumSpeed->get() : 1;
-    // Slow≈12ms, Medium≈6ms, Fast≈3ms at 44100
-    static const float kMs[] = { 12.0f, 6.0f, 3.0f };
+    // Slow≈80ms, Medium≈35ms, Fast≈15ms — audibly spread across the chord
+    static const float kMs[] = { 80.0f, 35.0f, 15.0f };
     const float ms = kMs[juce::jlimit(0, 2, speed)];
     return juce::jmax(1, (int)(currentSampleRate * ms * 0.001f));
 }
@@ -360,7 +360,7 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             }
             else if (perfMode == 1) // Strum
             {
-                synthEngine.releaseAllNotes();
+                synthEngine.reset(); // immediate cut — release tails would mask the stagger
                 strumQueue = chordOnlyNotes;
                 if (pStrumUp && !pStrumUp->get())
                     std::reverse(strumQueue.begin(), strumQueue.end());
