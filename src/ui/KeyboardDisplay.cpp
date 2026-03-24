@@ -44,6 +44,50 @@ void KeyboardDisplay::resized()
     buildKeyLayout();
 }
 
+int KeyboardDisplay::noteFromPoint(juce::Point<float> pt) const
+{
+    // Check black keys first (drawn on top)
+    for (const auto& key : keyRects)
+        if (key.isBlack && key.bounds.contains(pt))
+            return key.midiNote;
+    for (const auto& key : keyRects)
+        if (!key.isBlack && key.bounds.contains(pt))
+            return key.midiNote;
+    return -1;
+}
+
+void KeyboardDisplay::mouseDown(const juce::MouseEvent& e)
+{
+    int note = noteFromPoint(e.position);
+    if (note >= 0)
+    {
+        pressedNote = note;
+        if (onKeyEvent) onKeyEvent(note, true);
+    }
+}
+
+void KeyboardDisplay::mouseUp(const juce::MouseEvent&)
+{
+    if (pressedNote >= 0)
+    {
+        if (onKeyEvent) onKeyEvent(pressedNote, false);
+        pressedNote = -1;
+    }
+}
+
+void KeyboardDisplay::mouseDrag(const juce::MouseEvent& e)
+{
+    int note = noteFromPoint(e.position);
+    if (note != pressedNote)
+    {
+        if (pressedNote >= 0 && onKeyEvent)
+            onKeyEvent(pressedNote, false);
+        pressedNote = note;
+        if (pressedNote >= 0 && onKeyEvent)
+            onKeyEvent(pressedNote, true);
+    }
+}
+
 void KeyboardDisplay::buildKeyLayout()
 {
     keyRects.clear();

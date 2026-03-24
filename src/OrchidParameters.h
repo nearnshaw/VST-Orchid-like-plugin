@@ -22,6 +22,16 @@ namespace ParamIDs
     inline constexpr auto SelectedScale    = "selectedScale";
     inline constexpr auto SynthEnabled     = "synthEnabled";
     inline constexpr auto KeyMode          = "keyMode";
+
+    // Bass engine
+    inline constexpr auto BassEngineType  = "bassEngineType";
+
+    // Performance mode
+    inline constexpr auto PerfMode        = "perfMode";
+    inline constexpr auto StrumSpeed      = "strumSpeed";
+    inline constexpr auto StrumUp         = "strumUp";
+    inline constexpr auto ArpPattern      = "arpPattern";
+    inline constexpr auto ArpBPM          = "arpBPM";
 }
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
@@ -105,6 +115,31 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // Key Mode: auto-determine chord type from root + selected key/scale
     params.push_back(std::make_unique<AudioParameterBool>(
         ParamIDs::KeyMode, "Key Mode", false));
+
+    // Bass engine: 0=Piano, 1=Pad, 2=Synth, 3=Strings, 4=Pluck, 5=Organ
+    params.push_back(std::make_unique<AudioParameterInt>(
+        ParamIDs::BassEngineType, "Bass Engine", 0, 5, 3));
+
+    // Performance mode: 0=Normal, 1=Strum, 2=Arpeggiator
+    params.push_back(std::make_unique<AudioParameterInt>(
+        ParamIDs::PerfMode, "Perf Mode", 0, 2, 0));
+
+    // Strum speed: 0=Slow, 1=Medium, 2=Fast
+    params.push_back(std::make_unique<AudioParameterInt>(
+        ParamIDs::StrumSpeed, "Strum Speed", 0, 2, 1));
+
+    // Strum direction: true=Up (low→high), false=Down (high→low)
+    params.push_back(std::make_unique<AudioParameterBool>(
+        ParamIDs::StrumUp, "Strum Up", true));
+
+    // Arp pattern: 0=Up, 1=Down, 2=UpDown, 3=DownUp, 4=Random
+    params.push_back(std::make_unique<AudioParameterInt>(
+        ParamIDs::ArpPattern, "Arp Pattern", 0, 4, 0));
+
+    // Arp BPM: song tempo used to derive 1/16 note step interval
+    params.push_back(std::make_unique<AudioParameterFloat>(
+        ParamIDs::ArpBPM, "Arp BPM",
+        NormalisableRange<float>(40.0f, 300.0f), 100.0f));
 
     return { params.begin(), params.end() };
 }

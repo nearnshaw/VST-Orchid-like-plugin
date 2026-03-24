@@ -23,8 +23,12 @@ private:
     juce::TextButton  collapseBtn { "v" };
 
     // Engine selector
-    juce::Label    engineLabel { {}, "ENGINE" };
+    juce::Label    engineLabel { {}, "CHORD ENGINE" };
     juce::ComboBox engineCombo;
+
+    // Bass engine selector
+    juce::Label    bassEngineLabel { {}, "BASS ENGINE" };
+    juce::ComboBox bassEngineCombo;
 
     // ADSR sliders
     juce::Label  attackLabel  { {}, "A" };
@@ -49,17 +53,39 @@ private:
     // Audio on/off toggle in header
     juce::ToggleButton audioToggle { "Audio" };
 
+    // Performance mode
+    juce::Label    perfModeLabel { {}, "PERFORMANCE" };
+    juce::ComboBox perfModeCombo;
+
+    // Strum controls
+    juce::Label        strumSpeedLabel { {}, "SPEED" };
+    juce::ComboBox     strumSpeedCombo;
+    juce::ToggleButton strumUpToggle   { "Up" };
+
+    // Arp controls
+    juce::Label    arpPatternLabel { {}, "PATTERN" };
+    juce::ComboBox arpPatternCombo;
+    juce::Label    arpBpmLabel     { {}, "BPM" };
+    juce::Slider   arpBpmSlider;
+
     using SliderAtt  = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAtt   = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     using ButtonAtt  = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     std::unique_ptr<ComboAtt>  engineAttachment;
+    std::unique_ptr<ComboAtt>  bassEngineAttachment;
     std::unique_ptr<ButtonAtt> audioAtt;
     std::unique_ptr<SliderAtt> attackAtt, decayAtt, sustainAtt, releaseAtt;
     std::unique_ptr<SliderAtt> cutoffAtt, resonanceAtt, gainAtt;
+    std::unique_ptr<ComboAtt>  perfModeAtt;
+    std::unique_ptr<ComboAtt>  strumSpeedAtt;
+    std::unique_ptr<ButtonAtt> strumUpAtt;
+    std::unique_ptr<ComboAtt>  arpPatternAtt;
+    std::unique_ptr<SliderAtt> arpBpmAtt;
 
     void setupSlider (juce::Slider& s, juce::Slider::SliderStyle style);
     void setupLabel  (juce::Label& l);
+    void updatePerfVisibility();
 
     static const juce::Colour kBgColour;
     static const juce::Colour kTextColour;

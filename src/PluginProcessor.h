@@ -43,6 +43,9 @@ public:
     KeyboardMapper&                     getKeyboardMapper() { return keyboardMapper; }
     ChordEngine&                        getChordEngine()    { return chordEngine; }
 
+    // Called from UI thread (e.g. piano keyboard clicks) to inject a root note
+    void injectMidiNote(int midiNote, bool isDown);
+
     // For UI display: chord name updated on audio thread, read by UI
     juce::String getLastChordName() const { return lastChordName; }
     int          getLastRootNote()  const { return lastRootNote.load(); }
@@ -66,6 +69,7 @@ private:
     ChordEngine    chordEngine;
     VoicingEngine  voicingEngine;
     SynthEngine    synthEngine;
+    SynthEngine    bassEngine;
     MidiRouter     midiRouter;
     KeyboardMapper keyboardMapper;
 
@@ -99,9 +103,16 @@ private:
     juce::AudioParameterBool*  pKeyMode         = nullptr;
     juce::AudioParameterInt*   pSelectedKey     = nullptr;
     juce::AudioParameterInt*   pSelectedScale   = nullptr;
+    juce::AudioParameterInt*   pBassEngineType  = nullptr;
+    juce::AudioParameterInt*   pPerfMode        = nullptr;
+    juce::AudioParameterInt*   pStrumSpeed      = nullptr;
+    juce::AudioParameterBool*  pStrumUp         = nullptr;
+    juce::AudioParameterInt*   pArpPattern      = nullptr;
+    juce::AudioParameterFloat* pArpBPM          = nullptr;
 
     // Previous parameter values to detect changes (avoid unnecessary updates)
     int   prevSynthEngine  = -1;
+    int   prevBassEngine   = -1;
     float prevAttack       = -1.0f;
     float prevDecay        = -1.0f;
     float prevSustain      = -1.0f;
@@ -119,8 +130,29 @@ private:
     std::atomic<uint8_t>  displayChordType { 0 };
     std::atomic<uint16_t> displayNotesMask { 0 };    // bit i = pitch class i is sounding
 
+    // Lock-free FIFO: UI thread (keyboard clicks) → audio thread
+    struct UIKeyEvent { int note; bool isDown; };
+    static constexpr int kKeyFifoSize = 16;
+    juce::AbstractFifo keyEventFifo { kKeyFifoSize };
+    UIKeyEvent         keyEventBuf[kKeyFifoSize];
+
+    // Arp / strum state (audio thread only)
+    std::vector<int> arpNotes;        // current chord notes for arp
+    std::vector<int> arpSequence;     // ordered note sequence for current arp
+    int              arpSeqIdx        = 0;
+    int              arpSampleCounter = 0;
+    int              arpCurrentNote   = -1;
+
+    std::vector<int> strumQueue;       // notes queued to fire (strum mode)
+    int              strumSampleDebt  = 0;   // samples still owed before next strum note fires
+
+    double currentSampleRate = 44100.0;
+
     void cacheParameterPointers();
     void updateSynthParameters();
+    void buildArpSequence();
+    int  computeArpStepSamples() const;
+    int  strumIntervalSamples()  const;
     MidiRouter::Config buildRouterConfig() const;
     VoicingEngine::VoicingParams buildVoicingParams() const;
 

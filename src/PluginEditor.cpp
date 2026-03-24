@@ -46,6 +46,11 @@ BegoniaEditor::BegoniaEditor(BegoniaProcessor& p)
     voicingPanel.onToggle = [this]() { resized(); };
     synthPanel.onToggle   = [this]() { resized(); };
 
+    // Piano keyboard click-to-play
+    keyboardDisplay.onKeyEvent = [this](int note, bool isDown) {
+        processor.injectMidiNote(note, isDown);
+    };
+
     // Grab focus when clicked anywhere
     for (auto* comp : { (juce::Component*)&chordPanel,
                         (juce::Component*)&voicingPanel,

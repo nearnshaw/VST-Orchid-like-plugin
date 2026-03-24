@@ -12,19 +12,27 @@ public:
     void setChordName  (const juce::String& name);
     void setChordNotes (uint16_t notesBitmask);  // bit i = pitch class i is sounding
 
-    void paint   (juce::Graphics&) override;
-    void resized () override;
+    // Called when user clicks / releases a piano key. note = MIDI note number.
+    std::function<void(int note, bool isDown)> onKeyEvent;
+
+    void paint      (juce::Graphics&) override;
+    void resized    () override;
+    void mouseDown  (const juce::MouseEvent&) override;
+    void mouseUp    (const juce::MouseEvent&) override;
+    void mouseDrag  (const juce::MouseEvent&) override;
 
 private:
     int           rootNote       = -1;
     juce::String  chordName;
     uint16_t      chordNotesMask = 0;   // pitch classes currently sounding
+    int           pressedNote    = -1;  // note currently held via mouse click
 
     // Layout computed in resized()
     struct KeyRect { int midiNote; juce::Rectangle<float> bounds; bool isBlack; };
     std::vector<KeyRect> keyRects;
 
     void buildKeyLayout();
+    int  noteFromPoint(juce::Point<float> pt) const;
 
     static const juce::Colour kBgColour;
     static const juce::Colour kWhiteKey;

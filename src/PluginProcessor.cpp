@@ -1,5 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <algorithm>
+#include <chrono>
+#include <random>
 
 BegoniaProcessor::BegoniaProcessor()
     : AudioProcessor(BusesProperties()
@@ -20,12 +23,15 @@ bool BegoniaProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 
 void BegoniaProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    currentSampleRate = sampleRate;
     cacheParameterPointers();
 
     synthEngine.prepare(sampleRate, samplesPerBlock, 2);
+    bassEngine.prepare(sampleRate, samplesPerBlock, 2);
 
     // Force initial sync of all parameters
     prevSynthEngine = -1;
+    prevBassEngine  = -1;
     prevAttack = prevDecay = prevSustain = prevRelease = -1.0f;
     prevCutoff = prevResonance = prevGain = -1.0f;
     updateSynthParameters();
@@ -33,10 +39,16 @@ void BegoniaProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 
 void BegoniaProcessor::releaseResources()
 {
-    synthEngine.reset();
+    synthEngine.releaseAllNotes();
+    bassEngine.releaseAllNotes();
     currentNotes.clear();
     currentRootNote  = -1;
     currentBassNote  = -1;
+    arpSequence.clear();
+    arpCurrentNote   = -1;
+    arpSampleCounter = 0;
+    arpSeqIdx        = 0;
+    strumQueue.clear();
 }
 
 // Returns the diatonic chord type for a pitch class given a key and scale.
@@ -99,11 +111,106 @@ static uint8_t getDiatonicChordType(int pc, int K, int scale)
     return ChordEngine::None;
 }
 
+void BegoniaProcessor::injectMidiNote(int midiNote, bool isDown)
+{
+    const auto scope = keyEventFifo.write(1);
+    if (scope.blockSize1 > 0)
+        keyEventBuf[scope.startIndex1] = { midiNote, isDown };
+    else if (scope.blockSize2 > 0)
+        keyEventBuf[scope.startIndex2] = { midiNote, isDown };
+}
+
+void BegoniaProcessor::buildArpSequence()
+{
+    arpSequence.clear();
+    if (arpSequence.capacity() < arpNotes.size() * 2)
+        arpSequence.reserve(arpNotes.size() * 2);
+
+    std::vector<int> sorted = arpNotes;
+    const int pattern = pArpPattern ? pArpPattern->get() : 0;
+
+    switch (pattern)
+    {
+        case 0: // Up
+            std::sort(sorted.begin(), sorted.end());
+            arpSequence = sorted;
+            break;
+        case 1: // Down
+            std::sort(sorted.begin(), sorted.end(), std::greater<int>());
+            arpSequence = sorted;
+            break;
+        case 2: // UpDown
+            std::sort(sorted.begin(), sorted.end());
+            arpSequence = sorted;
+            for (int i = (int)sorted.size() - 2; i >= 1; --i)
+                arpSequence.push_back(sorted[i]);
+            break;
+        case 3: // DownUp
+            std::sort(sorted.begin(), sorted.end(), std::greater<int>());
+            arpSequence = sorted;
+            for (int i = (int)sorted.size() - 2; i >= 1; --i)
+                arpSequence.push_back(sorted[i]);
+            break;
+        case 4: // Random — shuffle once per chord change
+        {
+            std::sort(sorted.begin(), sorted.end());
+            std::mt19937 rng(static_cast<uint32_t>(
+                std::chrono::steady_clock::now().time_since_epoch().count()));
+            std::shuffle(sorted.begin(), sorted.end(), rng);
+            arpSequence = sorted;
+            break;
+        }
+        default:
+            std::sort(sorted.begin(), sorted.end());
+            arpSequence = sorted;
+            break;
+    }
+}
+
+int BegoniaProcessor::computeArpStepSamples() const
+{
+    const float bpm  = pArpBPM ? pArpBPM->get() : 120.0f;
+    // 1/16 note at given BPM
+    const float secs = 60.0f / (bpm * 4.0f);
+    return juce::jmax(1, (int)(currentSampleRate * secs));
+}
+
+int BegoniaProcessor::strumIntervalSamples() const
+{
+    const int speed = pStrumSpeed ? pStrumSpeed->get() : 1;
+    // Slow≈12ms, Medium≈6ms, Fast≈3ms at 44100
+    static const float kMs[] = { 12.0f, 6.0f, 3.0f };
+    const float ms = kMs[juce::jlimit(0, 2, speed)];
+    return juce::jmax(1, (int)(currentSampleRate * ms * 0.001f));
+}
+
 void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                     juce::MidiBuffer& midiBuffer)
 {
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
+
+    // Drain UI keyboard events into the MIDI buffer so they're processed below
+    {
+        const auto scope = keyEventFifo.read(keyEventFifo.getNumReady());
+        auto drainBlock = [&](int start, int size) {
+            for (int i = 0; i < size; ++i)
+            {
+                const auto& e = keyEventBuf[start + i];
+                if (e.note >= 0 && e.note <= 127)
+                {
+                    if (e.isDown)
+                        midiBuffer.addEvent(
+                            juce::MidiMessage::noteOn(1, e.note, (juce::uint8)100), 0);
+                    else
+                        midiBuffer.addEvent(
+                            juce::MidiMessage::noteOff(1, e.note, 0.0f), 0);
+                }
+            }
+        };
+        drainBlock(scope.startIndex1, scope.blockSize1);
+        drainBlock(scope.startIndex2, scope.blockSize2);
+    }
 
     // Update synth parameters if they changed
     updateSynthParameters();
@@ -157,7 +264,12 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                 auto config = buildRouterConfig();
                 midiRouter.allNotesOff(outMidi, currentNotes, currentBassNote,
                                        config, metadata.samplePosition);
-                synthEngine.releaseChord();
+                synthEngine.releaseAllNotes();
+                bassEngine.releaseAllNotes();
+                arpCurrentNote = -1;
+                arpSequence.clear();
+                strumQueue.clear();
+                strumSampleDebt = 0;
                 currentNotes.clear();
                 currentRootNote = -1;
                 currentBassNote = -1;
@@ -172,7 +284,11 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         {
             auto config = buildRouterConfig();
             midiRouter.allNotesOff(outMidi, currentNotes, currentBassNote, config, 0);
-            synthEngine.reset();
+            synthEngine.reset();   // all sound off — immediate for panic
+            bassEngine.reset();
+            arpCurrentNote = -1;
+            arpSequence.clear();
+            strumQueue.clear();
             currentNotes.clear();
             currentRootNote = -1;
             currentBassNote = -1;
@@ -194,6 +310,14 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             auto intervals     = chordEngine.buildIntervals(chordType, extensions);
             newNotes           = voicingEngine.applyVoicing(intervals, currentRootNote, voicingParams);
             newBass            = voicingEngine.getBassNote(newNotes);
+
+            // Force bass note into bass register (C1–B2, MIDI 24–47)
+            // so it always sounds distinctly lower than the chord notes.
+            if (newBass >= 0)
+            {
+                while (newBass >= 48) newBass -= 12;
+                while (newBass < 24) newBass += 12;
+            }
         }
         else
         {
@@ -206,9 +330,52 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             auto config     = buildRouterConfig();
             config.velocity = 0.8f;
 
+            // MIDI output routing (always applies)
             midiRouter.routeChord(outMidi, currentNotes, newNotes,
                                   newBass, config, 0);
-            synthEngine.playChord(newNotes, config.velocity);
+
+            const int perfMode = pPerfMode ? pPerfMode->get() : 0;
+            const bool bassEnabled = pBassEnabled && pBassEnabled->get();
+
+            // Separate chord notes from bass note for independent engine routing
+            std::vector<int> chordOnlyNotes = newNotes;
+            if (bassEnabled && newBass >= 0)
+                chordOnlyNotes.erase(
+                    std::remove(chordOnlyNotes.begin(), chordOnlyNotes.end(), newBass),
+                    chordOnlyNotes.end());
+
+            // Bass engine: play bass note immediately regardless of perf mode
+            if (bassEnabled)
+            {
+                if (currentBassNote >= 0)
+                    bassEngine.releaseNote(currentBassNote);
+                if (newBass >= 0)
+                    bassEngine.playNote(newBass, config.velocity);
+            }
+
+            // Chord synth: depends on performance mode
+            if (perfMode == 0) // Normal
+            {
+                synthEngine.playChord(chordOnlyNotes, config.velocity);
+            }
+            else if (perfMode == 1) // Strum
+            {
+                synthEngine.releaseAllNotes();
+                strumQueue = chordOnlyNotes;
+                if (pStrumUp && !pStrumUp->get())
+                    std::reverse(strumQueue.begin(), strumQueue.end());
+                strumSampleDebt = 0; // first note fires at start of next render block
+            }
+            else // Arpeggiator
+            {
+                // Release all voices (arp notes aren't tracked in activeNotes)
+                synthEngine.releaseAllNotes();
+                arpCurrentNote = -1;
+                arpNotes    = chordOnlyNotes;
+                buildArpSequence();
+                arpSeqIdx        = 0;
+                arpSampleCounter = 0;
+            }
 
             currentNotes    = newNotes;
             currentBassNote = newBass;
@@ -229,7 +396,11 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         // No root note — silence everything
         auto config = buildRouterConfig();
         midiRouter.allNotesOff(outMidi, currentNotes, currentBassNote, config, 0);
-        synthEngine.releaseChord();
+        synthEngine.releaseAllNotes();
+        bassEngine.releaseAllNotes();
+        arpCurrentNote = -1;
+        arpSequence.clear();
+        strumQueue.clear();
         currentNotes.clear();
         currentBassNote = -1;
         lastChordName   = "";
@@ -238,11 +409,76 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         displayChordType.store(0,  std::memory_order_release);
     }
 
+    // Build per-block MIDI for strum / arp (fed into synth renderNextBlock)
+    juce::MidiBuffer synthMidi;
+    const int perfMode   = pPerfMode ? pPerfMode->get() : 0;
+    const int blockSize  = buffer.getNumSamples();
+    const auto velByte   = (juce::uint8)juce::jlimit(1, 127, (int)(0.8f * 127.0f));
+
+    if (perfMode == 1 && !strumQueue.empty()) // Strum
+    {
+        // Fire notes at evenly-spaced sample offsets across (potentially multiple) blocks.
+        // strumSampleDebt = samples still to wait before the next note fires.
+        const int interval = strumIntervalSamples();
+        int offset = strumSampleDebt; // position within this block for the next note
+
+        while (!strumQueue.empty())
+        {
+            if (offset >= blockSize)
+            {
+                // This note falls in a future block — save the remaining wait time
+                strumSampleDebt = offset - blockSize;
+                break;
+            }
+            synthMidi.addEvent(
+                juce::MidiMessage::noteOn(1, strumQueue.front(), velByte), offset);
+            strumQueue.erase(strumQueue.begin());
+            offset += interval;
+        }
+
+        if (strumQueue.empty())
+            strumSampleDebt = 0;
+    }
+    else if (perfMode == 2 && !arpSequence.empty()) // Arpeggiator
+    {
+        const int stepSamples = computeArpStepSamples();
+        int pos = 0;
+        while (pos < blockSize)
+        {
+            const int until = stepSamples - arpSampleCounter;
+            if (pos + until <= blockSize)
+            {
+                pos += until;
+                arpSampleCounter = 0;
+                const int eventPos = juce::jmin(pos, blockSize - 1);
+
+                // Release previous arp note
+                if (arpCurrentNote >= 0)
+                    synthMidi.addEvent(
+                        juce::MidiMessage::noteOff(1, arpCurrentNote, 0.0f), eventPos);
+
+                // Play next note in sequence
+                arpCurrentNote = arpSequence[arpSeqIdx % (int)arpSequence.size()];
+                ++arpSeqIdx;
+                synthMidi.addEvent(
+                    juce::MidiMessage::noteOn(1, arpCurrentNote, velByte), eventPos);
+            }
+            else
+            {
+                arpSampleCounter += (blockSize - pos);
+                pos = blockSize;
+            }
+        }
+    }
+
     // Render synth audio (only if synth is enabled)
     if (!pSynthEnabled || pSynthEnabled->get())
     {
         juce::MidiBuffer emptyMidi;
-        synthEngine.renderNextBlock(buffer, emptyMidi);
+        synthEngine.renderNextBlock(buffer, perfMode == 0 ? emptyMidi : synthMidi);
+
+        if (pBassEnabled && pBassEnabled->get())
+            bassEngine.renderNextBlock(buffer, emptyMidi);
     }
 
     // Replace incoming MIDI with our output
@@ -270,6 +506,12 @@ void BegoniaProcessor::cacheParameterPointers()
     pKeyMode         = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::KeyMode));
     pSelectedKey     = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::SelectedKey));
     pSelectedScale   = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::SelectedScale));
+    pBassEngineType  = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::BassEngineType));
+    pPerfMode        = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::PerfMode));
+    pStrumSpeed      = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::StrumSpeed));
+    pStrumUp         = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter(ParamIDs::StrumUp));
+    pArpPattern      = dynamic_cast<juce::AudioParameterInt*>  (apvts.getParameter(ParamIDs::ArpPattern));
+    pArpBPM          = dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter(ParamIDs::ArpBPM));
 }
 
 void BegoniaProcessor::updateSynthParameters()
@@ -283,11 +525,22 @@ void BegoniaProcessor::updateSynthParameters()
         synthEngine.setEngine(static_cast<BegoniaVoice::Engine>(engineIdx));
     }
 
+    if (pBassEngineType)
+    {
+        int bassIdx = pBassEngineType->get();
+        if (bassIdx != prevBassEngine)
+        {
+            prevBassEngine = bassIdx;
+            bassEngine.setEngine(static_cast<BegoniaVoice::Engine>(bassIdx));
+        }
+    }
+
     float a = pAttack->get(), d = pDecay->get(), s = pSustain->get(), r = pRelease->get();
     if (a != prevAttack || d != prevDecay || s != prevSustain || r != prevRelease)
     {
         prevAttack = a; prevDecay = d; prevSustain = s; prevRelease = r;
         synthEngine.setADSR(a, d, s, r);
+        bassEngine.setADSR(a, d, s, r);
     }
 
     float cutoff = pFilterCutoff->get(), res = pFilterResonance->get();
@@ -295,6 +548,7 @@ void BegoniaProcessor::updateSynthParameters()
     {
         prevCutoff = cutoff; prevResonance = res;
         synthEngine.setFilter(cutoff, res);
+        bassEngine.setFilter(cutoff, res);
     }
 
     float gain = pOutputGain->get();
@@ -302,6 +556,7 @@ void BegoniaProcessor::updateSynthParameters()
     {
         prevGain = gain;
         synthEngine.setGain(gain);
+        bassEngine.setGain(gain);
     }
 }
 

@@ -82,10 +82,18 @@ void SynthEngine::setGain(float gainLinear)
     outputGain.setGainLinear(gainLinear);
 }
 
+void SynthEngine::releaseAllNotes()
+{
+    // Sends noteOff to every active voice (including arp/strum notes not in activeNotes).
+    // Allows release tails to play out normally.
+    synth.allNotesOff(0, true);
+    activeNotes.clear();
+}
+
 void SynthEngine::playChord(const std::vector<int>& midiNotes, float velocity)
 {
-    // Release previous chord
-    releaseChord();
+    // Release ALL voices (not just tracked ones) so arp/strum notes don't hang
+    releaseAllNotes();
 
     const int velInt = static_cast<int>(velocity * 127.0f);
     const int velClamped = juce::jlimit(1, 127, velInt);
@@ -120,6 +128,37 @@ void SynthEngine::releaseChord()
     synth.renderNextBlock(dummy, buf, 0, 0);
 
     activeNotes.clear();
+}
+
+void SynthEngine::playNote(int midiNote, float velocity)
+{
+    if (midiNote < 0 || midiNote > 127)
+        return;
+
+    const int velClamped = juce::jlimit(1, 127, (int)(velocity * 127.0f));
+
+    juce::MidiBuffer buf;
+    buf.addEvent(juce::MidiMessage::noteOn(1, midiNote, (juce::uint8)velClamped), 0);
+
+    juce::AudioBuffer<float> dummy(currentNumChannels, 0);
+    synth.renderNextBlock(dummy, buf, 0, 0);
+
+    activeNotes.push_back(midiNote);
+}
+
+void SynthEngine::releaseNote(int midiNote)
+{
+    if (midiNote < 0 || midiNote > 127)
+        return;
+
+    juce::MidiBuffer buf;
+    buf.addEvent(juce::MidiMessage::noteOff(1, midiNote, 0.0f), 0);
+
+    juce::AudioBuffer<float> dummy(currentNumChannels, 0);
+    synth.renderNextBlock(dummy, buf, 0, 0);
+
+    activeNotes.erase(std::remove(activeNotes.begin(), activeNotes.end(), midiNote),
+                      activeNotes.end());
 }
 
 void SynthEngine::renderNextBlock(juce::AudioBuffer<float>& buffer,

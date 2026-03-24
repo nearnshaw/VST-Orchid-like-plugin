@@ -53,7 +53,7 @@ private:
 
     // Layout constants
     static constexpr int kWidth        = 1100;
-    static constexpr int kHeight       = 520;
+    static constexpr int kHeight       = 640;
     static constexpr int kHeaderH      = 36;
     static constexpr int kChordPanelW  = 170;
     static constexpr int kCirclePanelW = 370;

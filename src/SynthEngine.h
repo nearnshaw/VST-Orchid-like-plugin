@@ -20,8 +20,14 @@ public:
     void setGain    (float gainLinear);
 
     // Play a set of MIDI notes as a chord (stops previous chord first)
-    void playChord   (const std::vector<int>& midiNotes, float velocity);
-    void releaseChord();
+    void playChord      (const std::vector<int>& midiNotes, float velocity);
+    void releaseChord   ();
+    // Release every voice regardless of activeNotes tracking (use in arp/strum mode)
+    void releaseAllNotes();
+
+    // Play / release a single note (for bass engine and arp/strum)
+    void playNote   (int midiNote, float velocity);
+    void releaseNote(int midiNote);
 
     // Called from processBlock to render audio
     void renderNextBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
