@@ -379,15 +379,18 @@ juce::Colour CircleOfFifthsDisplay::segmentColour(int pos, int ring, int key, in
     // If the pc is in none of the diatonic rings, flag it on the outer ring.
     if (activeRoot >= 0 && isChordNote(pc))
     {
-        const bool dMaj = isDiatonicK(pc, 0, key, s);
-        const bool dMin = isDiatonicK(pc, 1, key, s);
-        const bool dDim = isDiatonicK(pc, 2, key, s);
+        const bool dMaj   = isDiatonicK(pc, 0, key, s);
+        const bool dMin   = isDiatonicK(pc, 1, key, s);
+        const bool dDim   = isDiatonicK(pc, 2, key, s);
+        const bool sTone  = isScaleToneOnlyK(pc, key, s);
 
-        if (ring == 0 && dMaj) return kNoteHint;
-        if (ring == 1 && dMin) return kNoteHint;
-        if (ring == 2 && dDim) return kNoteHint;
-        // Not diatonic in any ring — show on the outer ring as a warning
-        if (ring == 0 && !dMaj && !dMin && !dDim) return kNoteOutOfScale;
+        if (ring == 0 && dMaj)  return kNoteHint;
+        if (ring == 1 && dMin)  return kNoteHint;
+        if (ring == 2 && dDim)  return kNoteHint;
+        // In scale but has no standard triad (e.g. augmented degree) — still a valid note
+        if (ring == 0 && sTone) return kNoteHint;
+        // Truly outside the scale — warn on the outer ring only
+        if (ring == 0 && !dMaj && !dMin && !dDim && !sTone) return kNoteOutOfScale;
     }
 
     // Tonic accent on the ring that hosts the tonic chord for this scale
@@ -494,13 +497,15 @@ void CircleOfFifthsDisplay::paint(juce::Graphics& g)
         auto chordToneText = [&](int pc, int r) -> juce::Colour
         {
             if (activeRoot < 0 || !isChordNote(pc)) return {};
-            const bool dMaj = isDiatonicK(pc, 0, key, scale);
-            const bool dMin = isDiatonicK(pc, 1, key, scale);
-            const bool dDim = isDiatonicK(pc, 2, key, scale);
-            if (r == 0 && dMaj) return kTextDiatonic;
-            if (r == 1 && dMin) return kTextDiatonic;
-            if (r == 2 && dDim) return kTextDiatonic;
-            if (r == 0 && !dMaj && !dMin && !dDim) return kTextOutOfScale;
+            const bool dMaj  = isDiatonicK(pc, 0, key, scale);
+            const bool dMin  = isDiatonicK(pc, 1, key, scale);
+            const bool dDim  = isDiatonicK(pc, 2, key, scale);
+            const bool sTone = isScaleToneOnlyK(pc, key, scale);
+            if (r == 0 && dMaj)  return kTextDiatonic;
+            if (r == 1 && dMin)  return kTextDiatonic;
+            if (r == 2 && dDim)  return kTextDiatonic;
+            if (r == 0 && sTone) return kTextDiatonic;
+            if (r == 0 && !dMaj && !dMin && !dDim && !sTone) return kTextOutOfScale;
             return {};
         };
 
