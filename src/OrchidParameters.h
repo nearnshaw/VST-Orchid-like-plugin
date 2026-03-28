@@ -94,7 +94,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // Output gain
     params.push_back(std::make_unique<AudioParameterFloat>(
         ParamIDs::OutputGain, "Output Gain",
-        NormalisableRange<float>(0.0f, 1.5f), 0.8f));
+        NormalisableRange<float>(0.0f, 1.5f), 0.5f));
 
     // Global key monitor (macOS)
     params.push_back(std::make_unique<AudioParameterBool>(
