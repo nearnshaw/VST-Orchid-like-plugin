@@ -237,15 +237,6 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     uint8_t chordType  = chordState.chordType;
     const uint8_t extensions = chordState.extensions;
 
-    // Key Mode: auto-determine chord type from root note + selected key/scale
-    if (pKeyMode && pKeyMode->get() && currentRootNote >= 0)
-    {
-        const int pc    = currentRootNote % 12;
-        const int key   = pSelectedKey   ? pSelectedKey->get()   : 0;
-        const int scale = pSelectedScale ? pSelectedScale->get() : 0;
-        chordType = getDiatonicChordType(pc, key, scale);
-    }
-
     // Process incoming MIDI to extract root note
     for (const auto metadata : midiBuffer)
     {
@@ -293,6 +284,16 @@ void BegoniaProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             currentRootNote = -1;
             currentBassNote = -1;
         }
+    }
+
+    // Key Mode: auto-determine chord type from the freshly-updated root note.
+    // Must run AFTER the MIDI loop so currentRootNote reflects this block's noteOn.
+    if (pKeyMode && pKeyMode->get() && currentRootNote >= 0)
+    {
+        const int pc    = currentRootNote % 12;
+        const int key   = pSelectedKey   ? pSelectedKey->get()   : 0;
+        const int scale = pSelectedScale ? pSelectedScale->get() : 0;
+        chordType = getDiatonicChordType(pc, key, scale);
     }
 
     // Determine desired notes:

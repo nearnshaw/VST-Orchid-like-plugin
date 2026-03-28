@@ -114,7 +114,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
 
     // Key Mode: auto-determine chord type from root + selected key/scale
     params.push_back(std::make_unique<AudioParameterBool>(
-        ParamIDs::KeyMode, "Key Mode", false));
+        ParamIDs::KeyMode, "Key Mode", true));
 
     // Bass engine: 0=Piano, 1=Pad, 2=Synth, 3=Strings, 4=Pluck, 5=Organ
     params.push_back(std::make_unique<AudioParameterInt>(
