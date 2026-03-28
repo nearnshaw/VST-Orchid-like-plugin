@@ -45,7 +45,6 @@ target_sources(Begonia PRIVATE
     src/SynthEngine.cpp
     src/SynthVoice.cpp
     src/KeyboardMapper.cpp
-    src/KeyboardMapperMac.mm
     src/MidiRouter.cpp
     src/ui/ChordButtonPanel.cpp
     src/ui/VoicingPanel.cpp
@@ -54,6 +53,10 @@ target_sources(Begonia PRIVATE
     src/ui/KeyboardDisplay.cpp
     src/ui/CircleOfFifthsDisplay.cpp
 )
+
+if(APPLE)
+    target_sources(Begonia PRIVATE src/KeyboardMapperMac.mm)
+endif()
 
 target_compile_definitions(Begonia
     PUBLIC

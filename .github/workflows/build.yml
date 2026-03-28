@@ -13,7 +13,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build:
+  build-macos:
     name: Build (macOS arm64)
     runs-on: macos-14
 
@@ -63,19 +63,66 @@ jobs:
           path: Begonia-*-macOS.zip
           retention-days: 30
 
+  build-windows:
+    name: Build (Windows x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build VST3
+        run: cmake --build build --target Begonia_VST3 --config Release -j4
+
+      - name: Build Standalone
+        run: cmake --build build --target Begonia_Standalone --config Release -j4
+
+      - name: List artifacts
+        run: |
+          echo "=== Contents of build/Begonia_artefacts ==="
+          Get-ChildItem -Recurse build/Begonia_artefacts | Select-Object FullName | Sort-Object FullName
+
+      - name: Package
+        shell: pwsh
+        run: |
+          function Pack($name, $out) {
+            $path = Get-ChildItem -Recurse build/Begonia_artefacts -Filter $name | Select-Object -First 1
+            if (-not $path) { Write-Error "ERROR: $name not found after build"; exit 1 }
+            Write-Host "Packing $($path.FullName) -> $out"
+            Compress-Archive -Path $path.FullName -DestinationPath "$env:GITHUB_WORKSPACE\$out"
+          }
+          Pack "Begonia.vst3"  "Begonia-VST3-Windows.zip"
+          Pack "Begonia.exe"   "Begonia-Standalone-Windows.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Begonia-Windows
+          path: Begonia-*-Windows.zip
+          retention-days: 30
+
   release:
     name: Attach to Release
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
-    needs: build
+    needs: [ build-macos, build-windows ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Download artifacts
+      - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
           name: Begonia-macOS
+          path: artifacts
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Begonia-Windows
           path: artifacts
 
       - name: Attach zips to release
